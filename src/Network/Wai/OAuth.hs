@@ -106,8 +106,9 @@ type OAuthM m = OAuthT OAuthState (EitherT OAuthError m)
 
 processRequest :: MonadIO m => OAuthM m ()
 processRequest = do
+    request <- gets request
     (oauths, rest) <- splitOAuthParams
-    url <- generateNormUrl
+    url <- oauthEither $ generateNormUrl request
     let getM name = E.encodeUtf8 <$> lookup name oauths
         getE name = note (MissingParameter name) $ getM name
         getOrEmpty name = fromMaybe "" $ getM name
@@ -154,21 +155,19 @@ genParamString params = E.encodeUtf8 $ T.intercalate "&" paramPairs
     sortedParams = sort params
     paramPairs = [T.concat [oauthEncode k,"=",oauthEncode v] | (k,v) <- sortedParams]
 
-generateNormUrl :: Monad m => OAuthM m ByteString
-generateNormUrl = do
-    req <- gets request
-    let secure = isSecure req
+generateNormUrl :: Request -> Either OAuthError ByteString
+generateNormUrl request =
+    let secure = isSecure request
         scheme = if secure then "https" else "http"
-        hostport = fmap (B.break (58 ==)) (requestHeaderHost req)
+        hostport = fmap (B.break (58 ==)) (requestHeaderHost request)
         mkPort port = case port of
             ":80" -> if not secure then "" else port
             ":443" -> if secure then "" else port
             p -> p
-        path = T.intercalate "/" $ pathInfo req
-    oauthEither $ note (MissingParameter "Host header") $ do
-        (host, p) <- hostport
-        let port = mkPort p
-        return $ B.concat [scheme, "://", host, port, "/", E.encodeUtf8 path]
+        path = T.intercalate "/" $ pathInfo request
+    in note (MissingParameter "Host header") $ do
+        (host, port) <- hostport
+        return $ B.concat [scheme, "://", host, mkPort port, "/", E.encodeUtf8 path]
 
 splitOAuthParams :: MonadIO m => OAuthM m (SimpleQueryText, SimpleQueryText)
 splitOAuthParams = do
