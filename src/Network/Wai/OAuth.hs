@@ -2,6 +2,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE TupleSections              #-}
 
 module Network.Wai.OAuth where
@@ -56,6 +57,9 @@ data OAuthParams = OAuthParams {
     opTimestamp       :: ByteString
     } deriving Show
 
+emptyOAuthParams :: OAuthParams
+emptyOAuthParams = OAuthParams "" "" Plaintext Nothing "" "" ""
+
 data OAuthKey = ConsumerKey ByteString | Token ByteString deriving Show
 
 type SimpleQueryText = [(Text, Text)]
@@ -90,9 +94,8 @@ data OAuthError = DuplicateParam Text
 data OAuthState = OAuthState
     { request        :: Request
     , oauthRawParams :: SimpleQueryText
-    , reqParams         :: SimpleQueryText
-    , reqMethod      :: ByteString
-    , reqUrl            :: ByteString
+    , reqParams      :: SimpleQueryText
+    , reqUrl         :: ByteString
     , oauthParams    :: OAuthParams
     }
 
@@ -103,34 +106,34 @@ type OAuthM m = OAuthT OAuthState (EitherT OAuthError m)
 
 processRequest :: MonadIO m => OAuthM m ()
 processRequest = do
-    req <- gets request
     (oauths, rest) <- splitOAuthParams
     url <- generateNormUrl
-    let get name = E.encodeUtf8 <$> lookup name oauths
-        getE name = note (MissingParameter name) $ get name
-        getOrEmpty name = fromMaybe "" $ get name
-    oauth  <- lift $ hoistEither $ do
+    let getM name = E.encodeUtf8 <$> lookup name oauths
+        getE name = note (MissingParameter name) $ getM name
+        getOrEmpty name = fromMaybe "" $ getM name
+    oauth  <- oauthEither $ do
         signMeth <- getE "oauth_signature_method" >>= extractSignatureMethod
         signature <- getE "oauth_signature"
         consKey <- getE "oauth_consumer_key"
         token <- getE "oauth_token"
-        return $ OAuthParams consKey token signMeth (get "oauth_callback") signature (getOrEmpty  "oauth_nonce") (getOrEmpty "oauth_timestamp")
+        return $ OAuthParams consKey token signMeth (getM "oauth_callback") signature (getOrEmpty "oauth_nonce") (getOrEmpty "oauth_timestamp")
     modify $ \s -> s { oauthRawParams = oauths, reqParams = rest, reqUrl = url, oauthParams = oauth }
 
 verifyOAuthSignature :: (Functor m, MonadIO m) => (OAuthKey -> m (Either OAuthError ByteString)) -> OAuthM m ByteString
 verifyOAuthSignature secretLookup = do
-    OAuthState req oauthRaw rest method url oauth <- get
-    secrets <- lift $ do
-        cons <- EitherT . secretLookup . ConsumerKey $  opConsumerKey oauth
-        token <- EitherT . secretLookup . Token $ opToken oauth
-        return (cons, token)
-    let cleanOAuths = filter ((/=) "oauth_signature" . fst) oauthRaw
-    return $ genOAuthSignature oauth secrets method url (cleanOAuths <> rest)
+    OAuthState request oauthRaw rest url oauth <- get
+    cons <- secretLookup' . ConsumerKey $  opConsumerKey oauth
+    token <- secretLookup' . Token $ opToken oauth
+    let secrets = (cons, token)
+        cleanOAuths = filter ((/=) "oauth_signature" . fst) oauthRaw
+    return $ genOAuthSignature oauth secrets (requestMethod request) url (cleanOAuths <> rest)
+  where
+    secretLookup' = lift . EitherT . secretLookup
 
 genOAuthSignature :: OAuthParams -> Secrets -> RequestMethod -> NormalizedURL -> SimpleQueryText -> ByteString
-genOAuthSignature oauthParams secrets method normUrl params = signature
+genOAuthSignature OAuthParams {..} secrets method normUrl params = signature
   where
-    signature = mkSignature (opSignatureMethod oauthParams) secrets baseString
+    signature = mkSignature opSignatureMethod secrets $ traceShow baseString baseString
     baseString = genSignatureBase method normUrl paramString
     paramString = genParamString params
 
@@ -162,7 +165,7 @@ generateNormUrl = do
             ":443" -> if secure then "" else port
             p -> p
         path = T.intercalate "/" $ pathInfo req
-    lift $ hoistEither $ note (MissingParameter "Host header") $ do
+    oauthEither $ note (MissingParameter "Host header") $ do
         (host, p) <- hostport
         let port = mkPort p
         return $ B.concat [scheme, "://", host, port, "/", E.encodeUtf8 path]
@@ -171,7 +174,7 @@ splitOAuthParams :: MonadIO m => OAuthM m (SimpleQueryText, SimpleQueryText)
 splitOAuthParams = do
     req <- gets request
     formBody <- formBodyParameters
-    lift $ hoistEither $ tryInOrder (authHeaderParams req) formBody (query req)
+    oauthEither $ tryInOrder (authHeaderParams req) formBody (query req)
   where
     authHeaderParams req = fromMaybe [] $ (maybeResult . parse parseAuthHeader) =<< lookup "Authentication" (requestHeaders req)
 
@@ -222,6 +225,8 @@ formBodyParameters = do
                         rbody
         return (body, rbody)
 
+oauthEither :: Monad m => Either OAuthError b -> OAuthM m b
+oauthEither = lift . hoistEither
 
 extractSignatureMethod :: ByteString -> Either OAuthError SignatureMethod
 extractSignatureMethod "HMAC-SHA1" = Right HMAC_SHA1
