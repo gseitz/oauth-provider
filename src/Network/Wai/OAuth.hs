@@ -133,7 +133,7 @@ verifyOAuthSignature secretLookup = do
 genOAuthSignature :: OAuthParams -> Secrets -> RequestMethod -> NormalizedURL -> SimpleQueryText -> ByteString
 genOAuthSignature OAuthParams {..} secrets method normUrl params = signature
   where
-    signature = mkSignature opSignatureMethod secrets $ traceShow baseString baseString
+    signature = mkSignature opSignatureMethod secrets baseString
     baseString = genSignatureBase method normUrl paramString
     paramString = genParamString params
 
@@ -187,7 +187,7 @@ tryInOrder authParams bodyParams queryParams =
         (False, False, False) -> Left $ MissingParameter "oauth_consumer_key"
         _                     -> Left $ MultipleOAuthParamLocations
   where
-    hasParams = any isOAuthParam . debug
+    hasParams = any isOAuthParam
     extractParams as bs cs = let (oauths, rest) = partition isOAuthParam as
                              in  fmap (, rest ++ bs ++ cs) $ findErrors oauths
     isOAuthParam = (T.isPrefixOf "oauth_") . fst
@@ -196,7 +196,7 @@ tryInOrder authParams bodyParams queryParams =
                             duplicate = fmap (Left . DuplicateParam . head) $ find ((>) 1 . length) xs
                             unsupported :: Maybe (Either OAuthError SimpleQueryText)
                             unsupported = fmap (Left . UnsupportedParameter . fst) $ find (flip notElem oauthParamNames . fst) oauths
-                        in  fromMaybe (Right oauths) $ traceShow unsupported $ unsupported <|> duplicate
+                        in  fromMaybe (Right oauths) $ unsupported <|> duplicate
 
 formBodyParameters :: MonadIO m => OAuthM m SimpleQueryText
 formBodyParameters = do
