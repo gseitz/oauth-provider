@@ -49,7 +49,7 @@ data SignatureMethod = HMAC_SHA1 | RSA_SHA1 | Plaintext deriving (Show, Enum)
 
 data OAuthParams = OAuthParams {
     opConsumerKey     :: ByteString,
-    opToken           :: ByteString,
+    opToken           :: Maybe ByteString,
     opSignatureMethod :: SignatureMethod,
     opCallback        :: Maybe ByteString,
     opSignature       :: ByteString,
@@ -58,9 +58,9 @@ data OAuthParams = OAuthParams {
     } deriving Show
 
 emptyOAuthParams :: OAuthParams
-emptyOAuthParams = OAuthParams "" "" Plaintext Nothing "" "" ""
+emptyOAuthParams = OAuthParams "" Nothing Plaintext Nothing "" "" ""
 
-data OAuthKey = ConsumerKey ByteString | Token ByteString deriving Show
+data OAuthKey = ConsumerKey ByteString | Token (Maybe ByteString) deriving Show
 
 type SimpleQueryText = [(Text, Text)]
 type RequestMethod = ByteString
@@ -92,21 +92,22 @@ data OAuthError = DuplicateParam Text
                 deriving Show
 
 data OAuthState = OAuthState
-    { request        :: Request
-    , oauthRawParams :: SimpleQueryText
+    { oauthRawParams :: SimpleQueryText
     , reqParams      :: SimpleQueryText
     , reqUrl         :: ByteString
+    , reqMethod      :: ByteString
     , oauthParams    :: OAuthParams
     }
+
+type OAuthM m = OAuthT Request (EitherT OAuthError m)
 
 query :: Request -> SimpleQueryText
 query = fmap (second (fromMaybe "")) . queryToQueryText . queryString
 
-type OAuthM m = OAuthT OAuthState (EitherT OAuthError m)
 
-processRequest :: MonadIO m => OAuthM m ()
+processRequest :: MonadIO m => OAuthM m OAuthState
 processRequest = do
-    request <- gets request
+    request <- get
     (oauths, rest) <- splitOAuthParams
     url <- oauthEither $ generateNormUrl request
     let getM name = E.encodeUtf8 <$> lookup name oauths
@@ -116,18 +117,16 @@ processRequest = do
         signMeth <- getE "oauth_signature_method" >>= extractSignatureMethod
         signature <- getE "oauth_signature"
         consKey <- getE "oauth_consumer_key"
-        token <- getE "oauth_token"
-        return $ OAuthParams consKey token signMeth (getM "oauth_callback") signature (getOrEmpty "oauth_nonce") (getOrEmpty "oauth_timestamp")
-    modify $ \s -> s { oauthRawParams = oauths, reqParams = rest, reqUrl = url, oauthParams = oauth }
+        return $ OAuthParams consKey (getM "oauth_token") signMeth (getM "oauth_callback") signature (getOrEmpty "oauth_nonce") (getOrEmpty "oauth_timestamp")
+    return $ OAuthState { oauthRawParams = oauths, reqParams = rest, reqUrl = url, reqMethod = requestMethod request, oauthParams = oauth }
 
-verifyOAuthSignature :: (Functor m, MonadIO m) => (OAuthKey -> m (Either OAuthError ByteString)) -> OAuthM m ByteString
-verifyOAuthSignature secretLookup = do
-    OAuthState request oauthRaw rest url oauth <- get
+verifyOAuthSignature :: (Functor m, MonadIO m) => OAuthState -> (OAuthKey -> m (Either OAuthError ByteString)) -> OAuthM m ByteString
+verifyOAuthSignature (OAuthState oauthRaw rest url method oauth) secretLookup = do
     cons <- secretLookup' . ConsumerKey $  opConsumerKey oauth
     token <- secretLookup' . Token $ opToken oauth
     let secrets = (cons, token)
         cleanOAuths = filter ((/=) "oauth_signature" . fst) oauthRaw
-    return $ genOAuthSignature oauth secrets (requestMethod request) url (cleanOAuths <> rest)
+    return $ genOAuthSignature oauth secrets method url (cleanOAuths <> rest)
   where
     secretLookup' = lift . EitherT . secretLookup
 
@@ -171,7 +170,7 @@ generateNormUrl request =
 
 splitOAuthParams :: MonadIO m => OAuthM m (SimpleQueryText, SimpleQueryText)
 splitOAuthParams = do
-    req <- gets request
+    req <- get
     formBody <- formBodyParameters
     oauthEither $ tryInOrder (authHeaderParams req) formBody (query req)
   where
@@ -199,14 +198,14 @@ tryInOrder authParams bodyParams queryParams =
 
 formBodyParameters :: MonadIO m => OAuthM m SimpleQueryText
 formBodyParameters = do
-    req <- gets request
+    req <- get
     case getRequestBodyType req of
         Just UrlEncoded -> do
             (body, replayedBody) <- liftIO $ replay req
             let req' = req { requestBody = replayedBody }
                 params = parseSimpleQuery $ mconcat body
                 result = [(E.decodeUtf8 k, E.decodeUtf8 v) | (k, v) <- params]
-            modify $ \s -> s { request = req' }
+            modify (const req')
             return result
         _               -> return []
 
