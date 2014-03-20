@@ -71,6 +71,7 @@ type TokenSecret = ByteString
 type Secrets = (ConsumerSecret, TokenSecret)
 
 newtype OAuthT s m a = OAuthT { runOAuthT :: StateT s m a } deriving (Functor, Applicative, Monad, MonadIO)
+type OAuthM m a = OAuthT Request (EitherT OAuthError m) a
 
 instance Monad m => MonadState s (OAuthT s m) where
     get = OAuthT $ get
@@ -100,7 +101,6 @@ data OAuthState = OAuthState
     , oauthParams    :: OAuthParams
     }
 
-type OAuthM m = OAuthT Request (EitherT OAuthError m)
 type SecretLookup m = OAuthKey -> m (Either OAuthError ByteString)
 
 query :: Request -> SimpleQueryText
