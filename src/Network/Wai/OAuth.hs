@@ -43,65 +43,13 @@ import qualified Data.Conduit.List          as CL
 import qualified Data.Text                  as T
 import qualified Data.Text.Encoding         as E
 
-data OAuthRequestType = InitiateRequest | AuthorizeRequest | TokenRequest deriving (Show, Enum)
+import Network.Wai.OAuth.Types
 
-data SignatureMethod = HMAC_SHA1 | RSA_SHA1 | Plaintext deriving (Show, Enum)
-
-data OAuthParams = OAuthParams {
-    opConsumerKey     :: ByteString,
-    opToken           :: Maybe ByteString,
-    opSignatureMethod :: SignatureMethod,
-    opCallback        :: Maybe ByteString,
-    opSignature       :: ByteString,
-    opNonce           :: ByteString,
-    opTimestamp       :: ByteString
-    } deriving Show
 
 emptyOAuthParams :: OAuthParams
 emptyOAuthParams = OAuthParams "" Nothing Plaintext Nothing "" "" ""
 
-data OAuthKey = ConsumerKey ByteString | Token (Maybe ByteString) deriving Show
 
-type SimpleQueryText = [(Text, Text)]
-type RequestMethod = ByteString
-type NormalizedURL = ByteString
-type ParamString = ByteString
-type ConsumerSecret = ByteString
-type TokenSecret = ByteString
-type Secrets = (ConsumerSecret, TokenSecret)
-
-newtype OAuthT s m a = OAuthT { runOAuthT :: StateT s m a } deriving (Functor, Applicative, Monad, MonadIO)
-type OAuthM m a = OAuthT Request (EitherT OAuthError m) a
-
-instance Monad m => MonadState s (OAuthT s m) where
-    get = OAuthT $ get
-    put s = OAuthT $ put s
-
-instance MonadTrans (OAuthT s) where
-    lift = OAuthT . lift
-
-data OAuthError = DuplicateParam Text
-                | UnsupportedParameter Text
-                | MissingParameter Text
-                | UnsupportedSignatureMethod ByteString
-                | InvalidConsumerKey ByteString
-                | InvalidToken ByteString
-                | ExpiredToken ByteString
-                | InvalidSignature ByteString
-                | UsedNonce ByteString
-                | MultipleOAuthParamLocations
-                | MissingHostHeader
-                deriving Show
-
-data OAuthState = OAuthState
-    { oauthRawParams :: SimpleQueryText
-    , reqParams      :: SimpleQueryText
-    , reqUrl         :: ByteString
-    , reqMethod      :: ByteString
-    , oauthParams    :: OAuthParams
-    }
-
-type SecretLookup m = OAuthKey -> m (Either OAuthError ByteString)
 
 query :: Request -> SimpleQueryText
 query = fmap (second (fromMaybe "")) . queryToQueryText . queryString
