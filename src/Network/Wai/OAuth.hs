@@ -101,6 +101,7 @@ data OAuthState = OAuthState
     }
 
 type OAuthM m = OAuthT Request (EitherT OAuthError m)
+type SecretLookup m = OAuthKey -> m (Either OAuthError ByteString)
 
 query :: Request -> SimpleQueryText
 query = fmap (second (fromMaybe "")) . queryToQueryText . queryString
@@ -121,13 +122,17 @@ processRequest = do
         return $ OAuthParams consKey (getM "oauth_token") signMeth (getM "oauth_callback") signature (getOrEmpty "oauth_nonce") (getOrEmpty "oauth_timestamp")
     return $ OAuthState { oauthRawParams = oauths, reqParams = rest, reqUrl = url, reqMethod = requestMethod request, oauthParams = oauth }
 
-verifyOAuthSignature :: (Functor m, MonadIO m) => OAuthState -> (OAuthKey -> m (Either OAuthError ByteString)) -> OAuthM m ByteString
-verifyOAuthSignature (OAuthState oauthRaw rest url method oauth) secretLookup = do
+verifyOAuthSignature :: MonadIO m => SecretLookup m -> OAuthState -> OAuthM m ()
+verifyOAuthSignature secretLookup (OAuthState oauthRaw rest url method oauth) = do
     cons <- secretLookup' . ConsumerKey $  opConsumerKey oauth
     token <- secretLookup' . Token $ opToken oauth
     let secrets = (cons, token)
         cleanOAuths = filter ((/=) "oauth_signature" . fst) oauthRaw
-    return $ genOAuthSignature oauth secrets method url (cleanOAuths <> rest)
+    let serverSignature = genOAuthSignature oauth secrets method url (cleanOAuths <> rest)
+        clientSignature = opSignature oauth
+    if clientSignature == serverSignature
+        then return ()
+        else oauthEither $ Left $ InvalidSignature clientSignature
   where
     secretLookup' = lift . EitherT . secretLookup
 
