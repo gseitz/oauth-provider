@@ -89,6 +89,7 @@ data OAuthError = DuplicateParam Text
                 | InvalidSignature ByteString
                 | UsedNonce ByteString
                 | MultipleOAuthParamLocations
+                | MissingHostHeader
                 deriving Show
 
 data OAuthState = OAuthState
@@ -164,7 +165,7 @@ generateNormUrl request =
             ":443" -> if secure then "" else port
             p -> p
         path = T.intercalate "/" $ pathInfo request
-    in note (MissingParameter "Host header") $ do
+    in note MissingHostHeader $ do
         (host, port) <- hostport
         return $ B.concat [scheme, "://", host, mkPort port, "/", E.encodeUtf8 path]
 
