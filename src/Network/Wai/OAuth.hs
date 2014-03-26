@@ -1,9 +1,8 @@
-{-# LANGUAGE FlexibleInstances          #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE MultiParamTypeClasses      #-}
-{-# LANGUAGE OverloadedStrings          #-}
-{-# LANGUAGE RecordWildCards            #-}
-{-# LANGUAGE TupleSections              #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE RecordWildCards       #-}
+{-# LANGUAGE TupleSections         #-}
 
 module Network.Wai.OAuth where
 
@@ -11,9 +10,10 @@ import           Control.Applicative        (Applicative, (<$>), (<*>), (<|>))
 import           Control.Arrow              (second, (***))
 import           Control.Concurrent.MonadIO (MonadIO, liftIO)
 import           Control.Error.Util         (note)
-import           Control.Monad              (join, mfilter)
+import           Control.Monad.Reader       (ask)
 import           Control.Monad.State
 import           Control.Monad.Trans.Either
+import           Control.Monad.Trans.Reader (runReaderT)
 import           Data.Attoparsec.Char8      hiding (isDigit)
 import           Data.ByteString            (ByteString)
 import           Data.Char                  (isAlpha, isAscii, isDigit)
@@ -21,15 +21,15 @@ import           Data.Digest.Pure.SHA       (bytestringDigest, hmacSha1)
 import           Data.Functor
 import           Data.IORef.Lifted          (newIORef, readIORef, writeIORef)
 import           Data.List                  (find, group, partition, sort)
-import           Data.Maybe                 (fromMaybe, isJust)
+import           Data.Maybe                 (fromMaybe)
 import           Data.Monoid                (mconcat, (<>))
 import           Data.Text                  (Text)
-import           Network.HTTP.Types         (methodGet, parseSimpleQuery,
-                                             queryToQueryText, urlDecode)
+import           Network.HTTP.Types         (badRequest400, ok200,
+                                             parseSimpleQuery, queryToQueryText,
+                                             unauthorized401, urlDecode)
 import           Network.Wai
 import           Network.Wai.Parse          (RequestBodyType (..),
-                                             getRequestBodyType, lbsBackEnd,
-                                             parseRequestBody)
+                                             getRequestBodyType)
 
 import           Debug.Trace
 
@@ -38,51 +38,87 @@ import qualified Data.ByteString.Base16     as B16
 import qualified Data.ByteString.Base64     as B64
 import qualified Data.ByteString.Lazy       as BL
 import qualified Data.Conduit               as C
-import qualified Data.Conduit.Lazy          as CL
 import qualified Data.Conduit.List          as CL
 import qualified Data.Text                  as T
 import qualified Data.Text.Encoding         as E
 
-import Network.Wai.OAuth.Types
+import           Network.Wai.OAuth.Types
 
 
 emptyOAuthParams :: OAuthParams
-emptyOAuthParams = OAuthParams "" Nothing Plaintext Nothing "" "" ""
+emptyOAuthParams = OAuthParams "" "" Plaintext Nothing "" "" ""
 
 
+
+runOAuthM :: Monad m => OAuthConfig m -> Request -> OAuthM m a -> m (Either OAuthError a)
+runOAuthM config req = (`runReaderT` config) . runEitherT . (`evalStateT` req) . runOAuthT
 
 query :: Request -> SimpleQueryText
 query = fmap (second (fromMaybe "")) . queryToQueryText . queryString
 
 
-processRequest :: MonadIO m => OAuthM m OAuthState
-processRequest = do
+preprocessRequest :: MonadIO m => OAuthM m OAuthState
+preprocessRequest = do
     request <- get
     (oauths, rest) <- splitOAuthParams
     url <- oauthEither $ generateNormUrl request
-    let getM name = E.encodeUtf8 <$> lookup name oauths
+    let getM name = mfilter ( /= "") $ E.encodeUtf8 <$> lookup name oauths
         getE name = note (MissingParameter name) $ getM name
         getOrEmpty name = fromMaybe "" $ getM name
     oauth  <- oauthEither $ do
         signMeth <- getE "oauth_signature_method" >>= extractSignatureMethod
         signature <- getE "oauth_signature"
         consKey <- getE "oauth_consumer_key"
-        return $ OAuthParams consKey (getM "oauth_token") signMeth (getM "oauth_callback") signature (getOrEmpty "oauth_nonce") (getOrEmpty "oauth_timestamp")
-    return $ OAuthState { oauthRawParams = oauths, reqParams = rest, reqUrl = url, reqMethod = requestMethod request, oauthParams = oauth }
+        return $ OAuthParams consKey (getOrEmpty "oauth_token") signMeth (getM "oauth_callback") signature (getOrEmpty "oauth_nonce") (getOrEmpty "oauth_timestamp")
+    return OAuthState { oauthRawParams = oauths, reqParams = rest, reqUrl = url, reqMethod = requestMethod request, oauthParams = oauth }
 
-verifyOAuthSignature :: MonadIO m => SecretLookup m -> OAuthState -> OAuthM m ()
-verifyOAuthSignature secretLookup (OAuthState oauthRaw rest url method oauth) = do
-    cons <- secretLookup' . ConsumerKey $  opConsumerKey oauth
-    token <- secretLookup' . Token $ opToken oauth
+
+processRequest :: MonadIO m => (OAuthState -> OAuthM m r) -> OAuthM m r
+processRequest oauthFunc = do
+    oauthState <- preprocessRequest
+    oauthFunc oauthState
+
+
+authenticated :: MonadIO m => OAuthM m OAuthParams
+authenticated = do
+    oauthState <- preprocessRequest
+    config <- ask
+    verifyOAuthSignature (cfgConsumerSecretLookup config) (cfgAccessTokenSecretLookup config) oauthState
+    return $ oauthParams oauthState
+
+
+oneLegged :: MonadIO m => OAuthConfig m -> OAuthM m ()
+oneLegged config = processRequest (verifyOAuthSignature (cfgConsumerSecretLookup config) (cfgAccessTokenSecretLookup config))
+
+twoLeggedRequest :: MonadIO m => OAuthConfig m -> OAuthM m Response
+twoLeggedRequest OAuthConfig {..} = twoLegged cfgConsumerSecretLookup cfgRequestTokenSecretLookup cfgTokenGenerator
+
+twoLeggedAccess :: MonadIO m => OAuthConfig m -> OAuthM m Response
+twoLeggedAccess OAuthConfig {..} = twoLegged cfgConsumerSecretLookup cfgAccessTokenSecretLookup cfgTokenGenerator
+
+twoLegged :: MonadIO m => SecretLookup m -> SecretLookup m -> (ByteString -> m (ByteString, ByteString)) -> OAuthM m Response
+twoLegged consumerLookup tokenLookup secretCreation = do
+    oauth <- preprocessRequest
+    _ <- verifyOAuthSignature consumerLookup tokenLookup oauth
+    (token, secret) <- liftOAuthT $ secretCreation $ opConsumerKey $ oauthParams oauth
+    let tokenKV  = B.intercalate "=" ["oauth_token", token]
+        secretKV = B.intercalate "=" ["oauth_token_secret", secret]
+    return $ responseLBS ok200 [] $ BL.fromStrict $ concatParamStrings [tokenKV, secretKV]
+
+verifyOAuthSignature :: MonadIO m => SecretLookup m -> SecretLookup m -> OAuthState -> OAuthM m ()
+verifyOAuthSignature consumerLookup tokenLookup  (OAuthState oauthRaw rest url method oauth) = do
+    cons <- wrapped consumerLookup $ opConsumerKey oauth
+    token <- wrapped tokenLookup $ opToken oauth
     let secrets = (cons, token)
         cleanOAuths = filter ((/=) "oauth_signature" . fst) oauthRaw
     let serverSignature = genOAuthSignature oauth secrets method url (cleanOAuths <> rest)
         clientSignature = opSignature oauth
-    if clientSignature == serverSignature
-        then return ()
-        else oauthEither $ Left $ InvalidSignature clientSignature
+    liftIO $ print clientSignature
+    liftIO $ print $ serverSignature
+    unless (clientSignature == serverSignature) $
+        oauthEither $ Left $ InvalidSignature clientSignature
   where
-    secretLookup' = lift . EitherT . secretLookup
+    wrapped f = OAuthT . lift . EitherT . lift . f
 
 genOAuthSignature :: OAuthParams -> Secrets -> RequestMethod -> NormalizedURL -> SimpleQueryText -> ByteString
 genOAuthSignature OAuthParams {..} secrets method normUrl params = signature
@@ -94,13 +130,16 @@ genOAuthSignature OAuthParams {..} secrets method normUrl params = signature
 mkSignature :: SignatureMethod -> Secrets -> ByteString -> ByteString
 mkSignature signatureMethod (consSecret, tokenSecret) content = signature signatureMethod
   where
-    signature HMAC_SHA1 = B64.encode $ BL.toStrict $ bytestringDigest $ hmacSha1 (BL.fromStrict key) (BL.fromStrict content)
+    signature HMAC_SHA1 = B64.encode $ BL.toStrict $ bytestringDigest $ hmacSha1 (BL.fromStrict $ debug key) (BL.fromStrict $ debug content)
     signature Plaintext = key
     signature RSA_SHA1  = undefined
-    key = B.intercalate "&" $ map oauthEncodeString [consSecret, tokenSecret]
+    key = concatParamStrings [consSecret, tokenSecret]
 
 genSignatureBase :: RequestMethod -> NormalizedURL -> ByteString -> ByteString
-genSignatureBase method normUrl params = B.intercalate "&" $ map oauthEncodeString [method, normUrl, params]
+genSignatureBase method normUrl params = concatParamStrings [method, normUrl, params]
+
+concatParamStrings :: [ByteString] -> ByteString
+concatParamStrings = B.intercalate "&" . map oauthEncodeString
 
 genParamString :: SimpleQueryText -> ByteString
 genParamString params = E.encodeUtf8 $ T.intercalate "&" paramPairs
@@ -137,16 +176,15 @@ tryInOrder authParams bodyParams queryParams =
         (False, True, False)  -> extractParams bodyParams queryParams authParams
         (False, False, True)  -> extractParams queryParams authParams bodyParams
         (False, False, False) -> Left $ MissingParameter "oauth_consumer_key"
-        _                     -> Left $ MultipleOAuthParamLocations
+        _                     -> Left MultipleOAuthParamLocations
   where
     hasParams = any isOAuthParam
     extractParams as bs cs = let (oauths, rest) = partition isOAuthParam as
                              in  fmap (, rest ++ bs ++ cs) $ findErrors oauths
-    isOAuthParam = (T.isPrefixOf "oauth_") . fst
+    isOAuthParam = T.isPrefixOf "oauth_" . fst
     findErrors :: SimpleQueryText -> Either OAuthError SimpleQueryText
     findErrors oauths = let xs = group . sort $ map fst oauths
-                            duplicate = fmap (Left . DuplicateParam . head) $ find ((>) 1 . length) xs
-                            unsupported :: Maybe (Either OAuthError SimpleQueryText)
+                            duplicate = fmap (Left . DuplicateParameter . head) $ find ((> 1) . length) xs
                             unsupported = fmap (Left . UnsupportedParameter . fst) $ find (flip notElem oauthParamNames . fst) oauths
                         in  fromMaybe (Right oauths) $ unsupported <|> duplicate
 
@@ -178,7 +216,10 @@ formBodyParameters = do
         return (body, rbody)
 
 oauthEither :: Monad m => Either OAuthError b -> OAuthM m b
-oauthEither = lift . hoistEither
+oauthEither = OAuthT . lift . hoistEither
+
+liftOAuthT :: Monad m => m a -> OAuthT r s m a
+liftOAuthT = OAuthT . lift .lift . lift
 
 extractSignatureMethod :: ByteString -> Either OAuthError SignatureMethod
 extractSignatureMethod "HMAC-SHA1" = Right HMAC_SHA1
@@ -189,6 +230,24 @@ extractSignatureMethod method      = Left $ UnsupportedSignatureMethod method
 oauthParamNames :: [Text]
 oauthParamNames = map (T.append "oauth_") ["consumer_key", "callback", "token", "nonce", "timestamp", "signature_method", "signature", "verifier", "version"]
 
+errorAsResponse :: OAuthError -> Response
+errorAsResponse err = case err of
+    -- 400 - Bad Request
+    UnsupportedParameter _ -> r400
+    UnsupportedSignatureMethod _ -> r400
+    MissingParameter _ -> r400
+    MissingHostHeader -> r400
+    DuplicateParameter _ -> r400
+    MultipleOAuthParamLocations -> r400
+    -- 401 - Unauthorized
+    InvalidToken _ -> r401
+    UsedNonce _ -> r401
+    InvalidConsumerKey _ -> r401
+    InvalidSignature _ -> r401
+  where
+    r400 = resp badRequest400
+    r401 = resp unauthorized401
+    resp status = responseLBS status [] $ BL.fromStrict $ E.encodeUtf8 $ T.pack $ show err
 
 oauthEncode :: Text -> Text
 oauthEncode = T.concatMap enc
@@ -226,25 +285,6 @@ lineParser = do
 
 both :: (b -> c) -> (b, b) -> (c, c)
 both = join (***)
-
-
-
-clientRequest :: Text -> Request
-clientRequest x = defaultRequest {
-    requestMethod = methodGet,
-    requestHeaders = [("Host", "photos.example.net:80")],
-    requestHeaderHost = Just "photos.example.net:80",
-    pathInfo = ["photos"],
-    queryString = [("oauth_consumer_key",Just "dpf43f3p2l4k3l03"),
-        ("oauth_nonce",Just "kllo9940pd9333jh"),
-        ("oauth_signature_method",Just "HMAC-SHA1"),
-        ("oauth_timestamp",Just "1191242096"),
-        ("oauth_token",Just "nnch734d00sl2jdk"),
-        ("oauth_version",Just "1.0"),
-        ("size", Just (B.append (E.encodeUtf8 x) "original")),
-        ("file", Just "vacation.jpg"),
-        ("oauth_signature", Just "tR3+Ty81lMeYAr/Fid0kMTYa/WM=")]
-    }
 
 debug :: Show a => a -> a
 debug a = traceShow a a
