@@ -12,7 +12,8 @@ cabal-version:       >=1.10
 
 
 library
-   exposed-modules:     Network.Wai.OAuth
+   exposed-modules:     Network.Wai.OAuth,
+                        Network.Wai.OAuth.Types
   
   -- other-modules:       
   
@@ -45,3 +46,17 @@ library
   -- Base language which the package is written in.
   default-language:    Haskell2010
   
+test-suite unit-tests
+    type:           exitcode-stdio-1.0
+    main-is:        Main.hs
+    hs-source-dirs: test
+    build-depends:  base >= 4.6 && <4.7,
+                    bytestring,
+                    HUnit,
+                    tasty >= 0.8,
+                    tasty-hunit,
+                    http-types,
+                    wai,
+                    wai-oauth
+
+  default-language: Haskell2010
