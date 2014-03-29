@@ -7,9 +7,8 @@
 
 module Network.Wai.OAuth where
 
-import           Control.Applicative        (Applicative, (<$>), (<*>), (<|>))
+import           Control.Applicative        ((<|>))
 import           Control.Arrow              (second, (***))
-import           Control.Concurrent.MonadIO (MonadIO, liftIO)
 import           Control.Error.Util         (note)
 import           Control.Monad.Reader       (ask)
 import           Control.Monad.State
