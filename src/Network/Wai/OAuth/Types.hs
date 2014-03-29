@@ -31,8 +31,8 @@ data OAuthParams = OAuthParams {
     opCallback        :: Maybe ByteString,
     opVerifier        :: Maybe ByteString,
     opSignature       :: ByteString,
-    opNonce           :: ByteString,
-    opTimestamp       :: ByteString
+    opNonce           :: Maybe ByteString,
+    opTimestamp       :: Maybe Integer
     } deriving Show
 
 data OAuthError = DuplicateParameter Text

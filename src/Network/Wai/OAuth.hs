@@ -47,7 +47,7 @@ import           Network.Wai.OAuth.Types
 
 
 emptyOAuthParams :: OAuthParams
-emptyOAuthParams = OAuthParams "" "" Plaintext Nothing Nothing "" "" ""
+emptyOAuthParams = OAuthParams "" "" Plaintext Nothing Nothing "" Nothing Nothing
 
 
 
@@ -70,8 +70,11 @@ preprocessRequest = do
         signMeth <- getE "oauth_signature_method" >>= extractSignatureMethod
         signature <- getE "oauth_signature"
         consKey <- getE "oauth_consumer_key"
-        return $ OAuthParams consKey (getOrEmpty "oauth_token") signMeth (getM "oauth_callback") (getM "oauth_verifier") signature (getOrEmpty "oauth_nonce") (getOrEmpty "oauth_timestamp")
+        return $ OAuthParams consKey (getOrEmpty "oauth_token") signMeth
+            (getM "oauth_callback") (getM "oauth_verifier") signature (getM "oauth_nonce") (getM "oauth_timestamp" >>= parseTS)
     return OAuthState { oauthRawParams = oauths, reqParams = rest, reqUrl = url, reqMethod = requestMethod request, oauthParams = oauth }
+  where
+    parseTS = maybeResult . parse decimal
 
 
 authenticated :: MonadIO m => OAuthM m OAuthParams
