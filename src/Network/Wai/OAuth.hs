@@ -18,6 +18,7 @@ import           Data.Attoparsec.Char8      hiding (isDigit)
 import           Data.ByteString            (ByteString)
 import           Data.Char                  (isAlpha, isAscii, isDigit)
 import           Data.Digest.Pure.SHA       (bytestringDigest, hmacSha1)
+import           Data.Either.Combinators    (mapLeft)
 import           Data.Functor
 import           Data.IORef.Lifted          (newIORef, readIORef, writeIORef)
 import           Data.List                  (find, group, partition, sort)
@@ -69,11 +70,12 @@ preprocessRequest = do
         signMeth <- getE "oauth_signature_method" >>= extractSignatureMethod
         signature <- getE "oauth_signature"
         consKey <- getE "oauth_consumer_key"
+        timestamp <- maybe (Right Nothing) (fmap Just) $ parseTS <$> getM "oauth_timestamp"
         return $ OAuthParams consKey (getOrEmpty "oauth_token") signMeth
-            (getM "oauth_callback") (getM "oauth_verifier") signature (getM "oauth_nonce") (getM "oauth_timestamp" >>= parseTS)
+            (getM "oauth_callback") (getM "oauth_verifier") signature (getM "oauth_nonce") timestamp
     return OAuthState { oauthRawParams = oauths, reqParams = rest, reqUrl = url, reqMethod = requestMethod request, oauthParams = oauth }
   where
-    parseTS = maybeResult . parse decimal
+    parseTS = mapLeft (const InvalidTimestamp) . eitherResult . parse decimal
 
 
 authenticated :: MonadIO m => OAuthM m OAuthParams
@@ -241,7 +243,6 @@ formBodyParameters = do
             modify (const req')
             return result
         _               -> return []
-
   where
     replay req = do
         body <- requestBody req C.$$ CL.consume
