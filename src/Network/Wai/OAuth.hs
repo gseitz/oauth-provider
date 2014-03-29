@@ -3,6 +3,7 @@
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE TupleSections         #-}
+{-# LANGUAGE ViewPatterns          #-}
 
 module Network.Wai.OAuth where
 
@@ -24,7 +25,7 @@ import           Data.List                  (find, group, partition, sort)
 import           Data.Maybe                 (fromMaybe)
 import           Data.Monoid                (mconcat, (<>))
 import           Data.Text                  (Text)
-import           Network.HTTP.Types         (badRequest400, ok200,
+import           Network.HTTP.Types         (badRequest400, hContentType, ok200,
                                              parseSimpleQuery, queryToQueryText,
                                              unauthorized401, urlDecode)
 import           Network.Wai
@@ -46,7 +47,7 @@ import           Network.Wai.OAuth.Types
 
 
 emptyOAuthParams :: OAuthParams
-emptyOAuthParams = OAuthParams "" "" Plaintext Nothing "" "" ""
+emptyOAuthParams = OAuthParams "" "" Plaintext Nothing Nothing "" "" ""
 
 
 
@@ -69,14 +70,8 @@ preprocessRequest = do
         signMeth <- getE "oauth_signature_method" >>= extractSignatureMethod
         signature <- getE "oauth_signature"
         consKey <- getE "oauth_consumer_key"
-        return $ OAuthParams consKey (getOrEmpty "oauth_token") signMeth (getM "oauth_callback") signature (getOrEmpty "oauth_nonce") (getOrEmpty "oauth_timestamp")
+        return $ OAuthParams consKey (getOrEmpty "oauth_token") signMeth (getM "oauth_callback") (getM "oauth_verifier") signature (getOrEmpty "oauth_nonce") (getOrEmpty "oauth_timestamp")
     return OAuthState { oauthRawParams = oauths, reqParams = rest, reqUrl = url, reqMethod = requestMethod request, oauthParams = oauth }
-
-
-processRequest :: MonadIO m => (OAuthState -> OAuthM m r) -> OAuthM m r
-processRequest oauthFunc = do
-    oauthState <- preprocessRequest
-    oauthFunc oauthState
 
 
 authenticated :: MonadIO m => OAuthM m OAuthParams
@@ -87,23 +82,65 @@ authenticated = do
     return $ oauthParams oauthState
 
 
-oneLegged :: MonadIO m => OAuthConfig m -> OAuthM m ()
-oneLegged config = processRequest (verifyOAuthSignature (cfgConsumerSecretLookup config) (cfgAccessTokenSecretLookup config))
+oneLegged :: MonadIO m => OAuthM m ()
+oneLegged = do
+    OAuthConfig {..} <- ask
+    oauthState <- preprocessRequest
+    verifyOAuthSignature cfgConsumerSecretLookup emptyTokenLookup oauthState
 
-twoLeggedRequest :: MonadIO m => OAuthConfig m -> OAuthM m Response
-twoLeggedRequest OAuthConfig {..} = twoLegged cfgConsumerSecretLookup cfgRequestTokenSecretLookup cfgTokenGenerator
+twoLeggedRequestTokenRequest :: MonadIO m => OAuthM m Response
+twoLeggedRequestTokenRequest = do
+    OAuthConfig {..} <- ask
+    twoLegged cfgConsumerSecretLookup emptyTokenLookup cfgTokenGenerator
 
-twoLeggedAccess :: MonadIO m => OAuthConfig m -> OAuthM m Response
-twoLeggedAccess OAuthConfig {..} = twoLegged cfgConsumerSecretLookup cfgAccessTokenSecretLookup cfgTokenGenerator
+twoLeggedAccessTokenRequest :: MonadIO m => OAuthM m Response
+twoLeggedAccessTokenRequest = do
+    OAuthConfig {..} <- ask
+    twoLegged cfgConsumerSecretLookup cfgRequestTokenSecretLookup cfgTokenGenerator
 
 twoLegged :: MonadIO m => SecretLookup m -> SecretLookup m -> (ByteString -> m (ByteString, ByteString)) -> OAuthM m Response
-twoLegged consumerLookup tokenLookup secretCreation = do
+twoLegged consLookup tokenLookup secretCreation = do
+    responseString <- processOAuthRequest consLookup tokenLookup secretCreation noProcessing
+    return $ mkResponse200 responseString
+
+noProcessing :: Monad m => OAuthParams -> OAuthM m ()
+noProcessing = const (return ())
+
+processOAuthRequest :: MonadIO m => SecretLookup m -> SecretLookup m -> (ByteString -> m (ByteString, ByteString)) -> (OAuthParams -> OAuthM m ()) -> OAuthM m [(ByteString, ByteString)]
+processOAuthRequest consumerLookup tokenLookup secretCreation customProcessing = do
     oauth <- preprocessRequest
+    _ <- customProcessing (oauthParams oauth)
     _ <- verifyOAuthSignature consumerLookup tokenLookup oauth
     (token, secret) <- liftOAuthT $ secretCreation $ opConsumerKey $ oauthParams oauth
-    let tokenKV  = B.intercalate "=" ["oauth_token", token]
-        secretKV = B.intercalate "=" ["oauth_token_secret", secret]
-    return $ responseLBS ok200 [] $ BL.fromStrict $ concatParamStrings [tokenKV, secretKV]
+    return [("oauth_token", token), ("oauth_token_secret", secret)]
+
+threeLeggedRequestTokenRequest :: MonadIO m => OAuthM m Response
+threeLeggedRequestTokenRequest = do
+    OAuthConfig {..} <- ask
+    responseParams <- processOAuthRequest cfgConsumerSecretLookup emptyTokenLookup cfgTokenGenerator noProcessing
+    return $ mkResponse200 $ ("oauth_callback_confirmed", "true") : responseParams
+
+threeLeggedAccessTokenRequest :: MonadIO m => OAuthM m Response
+threeLeggedAccessTokenRequest = do
+    OAuthConfig {..} <- ask
+    let verifierCheck params = do
+            storedVerifier <- lift $ cfgVerifierLookup (opConsumerKey params, opToken params)
+            case opVerifier params of
+                Just ((==) storedVerifier -> True) -> oauthEither $ Right ()
+                Just wrongVerifier               -> oauthEither $ Left (InvalidVerifier wrongVerifier)
+                Nothing                          -> oauthEither $ Left (MissingParameter "oauth_verifier")
+    responseParams <- processOAuthRequest cfgConsumerSecretLookup cfgRequestTokenSecretLookup cfgTokenGenerator verifierCheck
+    return $ mkResponse200 responseParams
+
+
+mkResponse200 :: [(ByteString, ByteString)] -> Response
+mkResponse200 params = responseLBS ok200 [(hContentType, "application/x-www-form-urlencoded")] (BL.fromStrict body)
+  where
+    body = B.intercalate "&" $ fmap paramString params
+    paramString (a,b) = B.concat [a, "=", b]
+
+emptyTokenLookup :: Monad m => SecretLookup m
+emptyTokenLookup = const (return $ Right "")
 
 verifyOAuthSignature :: MonadIO m => SecretLookup m -> SecretLookup m -> OAuthState -> OAuthM m ()
 verifyOAuthSignature consumerLookup tokenLookup  (OAuthState oauthRaw rest url method oauth) = do
@@ -113,8 +150,6 @@ verifyOAuthSignature consumerLookup tokenLookup  (OAuthState oauthRaw rest url m
         cleanOAuths = filter ((/=) "oauth_signature" . fst) oauthRaw
     let serverSignature = genOAuthSignature oauth secrets method url (cleanOAuths <> rest)
         clientSignature = opSignature oauth
-    liftIO $ print clientSignature
-    liftIO $ print $ serverSignature
     unless (clientSignature == serverSignature) $
         oauthEither $ Left $ InvalidSignature clientSignature
   where
@@ -244,6 +279,7 @@ errorAsResponse err = case err of
     UsedNonce _ -> r401
     InvalidConsumerKey _ -> r401
     InvalidSignature _ -> r401
+    InvalidVerifier _ -> r401
   where
     r400 = resp badRequest400
     r401 = resp unauthorized401

@@ -29,6 +29,7 @@ data OAuthParams = OAuthParams {
     opToken           :: ByteString,
     opSignatureMethod :: SignatureMethod,
     opCallback        :: Maybe ByteString,
+    opVerifier        :: Maybe ByteString,
     opSignature       :: ByteString,
     opNonce           :: ByteString,
     opTimestamp       :: ByteString
@@ -45,6 +46,7 @@ data OAuthError = DuplicateParameter Text
                 | UsedNonce ByteString
                 | MultipleOAuthParamLocations
                 | MissingHostHeader
+                | InvalidVerifier ByteString
                 deriving (Show, Eq)
 
 
@@ -77,18 +79,26 @@ data OAuthConfig m = OAuthConfig
     { cfgConsumerSecretLookup      :: SecretLookup m
     , cfgAccessTokenSecretLookup   :: SecretLookup m
     , cfgRequestTokenSecretLookup  :: SecretLookup m
-    , cfgTokenGenerator            :: ByteString -> m (ByteString, ByteString)
+    , cfgTokenGenerator            :: TokenGenerator m
     , cfgNonceTimestampCheck       :: NonceTimestampCheck m
     , cfgSupportedSignatureMethods :: [SignatureMethod]
+    , cfgCallbackLookup            :: CallbackLookup m
+    , cfgVerifierLookup            :: VerifierLookup m
     }
 
 oneLeggedConfig :: Monad m => SecretLookup m -> SecretLookup m -> NonceTimestampCheck m -> [SignatureMethod] -> OAuthConfig m
-oneLeggedConfig consumerLookup tokenLookup = OAuthConfig consumerLookup tokenLookup emptyToken $ const (return ("", ""))
+oneLeggedConfig consumerLookup tokenLookup check methods = OAuthConfig consumerLookup tokenLookup emptyToken (const (return ("", ""))) check methods emptyLookup emptyLookup
   where
     emptyToken tk = return $ Left (InvalidToken tk)
 
 twoLeggedConfig :: Monad m => SecretLookup m -> SecretLookup m -> SecretLookup m -> NonceTimestampCheck m -> [SignatureMethod] -> OAuthConfig m
-twoLeggedConfig cons acc req = OAuthConfig cons acc req $ const (return ("", ""))
+twoLeggedConfig cons acc req check methods = OAuthConfig cons acc req (const (return ("", ""))) check methods emptyLookup emptyLookup
+
+threeLeggedConfig :: Monad m => SecretLookup m -> SecretLookup m -> SecretLookup m -> TokenGenerator m -> NonceTimestampCheck m -> [SignatureMethod] -> CallbackLookup m -> VerifierLookup m -> OAuthConfig m
+threeLeggedConfig = OAuthConfig
+
+emptyLookup :: Monad m => Lookup m
+emptyLookup = const $ return ""
 
 data OAuthState = OAuthState
     { oauthRawParams :: SimpleQueryText
@@ -99,5 +109,8 @@ data OAuthState = OAuthState
     }
 
 type SecretLookup m = ByteString -> m (Either OAuthError ByteString)
+type Lookup m = (ByteString, ByteString) -> m ByteString
+type VerifierLookup m = Lookup m
+type CallbackLookup m = Lookup m
 type NonceTimestampCheck m = OAuthParams -> m (Maybe OAuthError)
-
+type TokenGenerator m = ByteString -> m (ByteString, ByteString)
