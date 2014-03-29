@@ -308,8 +308,8 @@ oauthEncodeString = E.encodeUtf8 . oauthEncode . E.decodeUtf8
 grouped :: Int -> ByteString -> [ByteString]
 grouped n as = if B.null as then [] else result
   where
-    (group, rest) = B.splitAt n as
-    result = group : grouped n rest
+    (str, rest) = B.splitAt n as
+    result = str : grouped n rest
 
 parseAuthHeader :: Parser SimpleQueryText
 parseAuthHeader = do
