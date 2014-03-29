@@ -112,6 +112,10 @@ noProcessing = const (return ())
 processOAuthRequest :: MonadIO m => SecretLookup m -> SecretLookup m -> (ByteString -> m (ByteString, ByteString)) -> (OAuthParams -> OAuthM m ()) -> OAuthM m [(ByteString, ByteString)]
 processOAuthRequest consumerLookup tokenLookup secretCreation customProcessing = do
     oauth <- preprocessRequest
+    OAuthConfig {..} <- ask
+    OAuthT . lift . EitherT .lift $ do
+        maybeError <- cfgNonceTimestampCheck $ oauthParams oauth
+        return $ maybe (Right ()) Left  maybeError
     _ <- customProcessing (oauthParams oauth)
     _ <- verifyOAuthSignature consumerLookup tokenLookup oauth
     (token, secret) <- liftOAuthT $ secretCreation $ opConsumerKey $ oauthParams oauth
