@@ -8,7 +8,7 @@
 module Network.Wai.OAuth where
 
 import           Control.Applicative        ((<|>))
-import           Control.Arrow              (second, (***))
+import           Control.Arrow              (second)
 import           Control.Error.Util         (note)
 import           Control.Monad.Reader       (ask)
 import           Control.Monad.State
@@ -326,9 +326,6 @@ lineParser = do
         key <- takeTill ('=' ==)
         value <- "=\"" .*> takeTill ('"' ==) <*. "\""
         return (E.decodeUtf8 $ urlDecode True key, E.decodeUtf8 $ urlDecode True value)
-
-both :: (b -> c) -> (b, b) -> (c, c)
-both = join (***)
 
 debug :: Show a => a -> a
 debug a = traceShow a a
