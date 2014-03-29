@@ -43,7 +43,8 @@ data OAuthError = DuplicateParameter Text
                 | InvalidToken ByteString
                 | ExpiredToken ByteString
                 | InvalidSignature ByteString
-                | UsedNonce ByteString
+                | UsedNonce
+                | ExpiredRequest
                 | MultipleOAuthParamLocations
                 | MissingHostHeader
                 | InvalidVerifier ByteString

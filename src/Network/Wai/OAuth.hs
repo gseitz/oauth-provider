@@ -279,10 +279,12 @@ errorAsResponse err = case err of
     MultipleOAuthParamLocations -> r400
     -- 401 - Unauthorized
     InvalidToken _ -> r401
-    UsedNonce _ -> r401
+    UsedNonce -> r401
     InvalidConsumerKey _ -> r401
     InvalidSignature _ -> r401
     InvalidVerifier _ -> r401
+    ExpiredRequest -> r401
+    ExpiredToken _ -> r401
   where
     r400 = resp badRequest400
     r401 = resp unauthorized401
