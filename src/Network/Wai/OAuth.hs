@@ -51,8 +51,8 @@ emptyOAuthParams = OAuthParams "" "" Plaintext Nothing Nothing "" Nothing Nothin
 
 
 
-runOAuthM :: Monad m => OAuthConfig m -> Request -> OAuthM m a -> m (Either OAuthError a)
-runOAuthM config req = (`runReaderT` config) . runEitherT . (`evalStateT` req) . runOAuthT
+runOAuthM :: Monad m => OAuthConfig m -> Request -> OAuthM m a -> m (Either OAuthError a, Request)
+runOAuthM config req = (`runReaderT` config) . (`runStateT` req) . runEitherT . runOAuthT
 
 query :: Request -> SimpleQueryText
 query = fmap (second (fromMaybe "")) . queryToQueryText . queryString
@@ -114,7 +114,7 @@ processOAuthRequest :: MonadIO m => SecretLookup m -> SecretLookup m -> (ByteStr
 processOAuthRequest consumerLookup tokenLookup secretCreation customProcessing = do
     oauth <- preprocessRequest
     OAuthConfig {..} <- ask
-    OAuthT . lift . EitherT .lift $ do
+    OAuthT . EitherT . lift . lift $ do
         maybeError <- cfgNonceTimestampCheck $ oauthParams oauth
         return $ maybe (Right ()) Left  maybeError
     _ <- customProcessing (oauthParams oauth)
@@ -161,7 +161,7 @@ verifyOAuthSignature consumerLookup tokenLookup  (OAuthState oauthRaw rest url m
     unless (clientSignature == serverSignature) $
         oauthEither $ Left $ InvalidSignature clientSignature
   where
-    wrapped f = OAuthT . lift . EitherT . lift . f
+    wrapped f = OAuthT . EitherT . lift . lift . f
 
 genOAuthSignature :: OAuthParams -> Secrets -> RequestMethod -> NormalizedURL -> SimpleQueryText -> ByteString
 genOAuthSignature OAuthParams {..} secrets method normUrl params = signature
@@ -258,7 +258,7 @@ formBodyParameters = do
         return (body, rbody)
 
 oauthEither :: Monad m => Either OAuthError b -> OAuthM m b
-oauthEither = OAuthT . lift . hoistEither
+oauthEither = OAuthT . hoistEither
 
 liftOAuthT :: Monad m => m a -> OAuthT r s m a
 liftOAuthT = OAuthT . lift .lift . lift

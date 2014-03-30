@@ -63,7 +63,7 @@ type Nonce = ByteString
 type Timestamp = Int64
 
 
-newtype OAuthT r s m a = OAuthT { runOAuthT :: StateT s (EitherT OAuthError (ReaderT r m)) a } deriving (Functor, Applicative, Monad, MonadIO)
+newtype OAuthT r s m a = OAuthT { runOAuthT :: EitherT OAuthError (StateT s (ReaderT r m)) a } deriving (Functor, Applicative, Monad, MonadIO)
 type OAuthM m a = OAuthT (OAuthConfig m) Request m  a
 
 instance Monad m => MonadState s (OAuthT r s m) where
