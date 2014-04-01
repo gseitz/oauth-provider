@@ -281,6 +281,7 @@ errorAsResponse err = case err of
     MissingHostHeader -> r400
     DuplicateParameter _ -> r400
     MultipleOAuthParamLocations -> r400
+    InvalidTimestamp -> r400
     -- 401 - Unauthorized
     InvalidToken _ -> r401
     UsedNonce -> r401
