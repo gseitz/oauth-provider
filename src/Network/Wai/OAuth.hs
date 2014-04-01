@@ -48,10 +48,6 @@ import qualified Data.Vault.Lazy            as V
 import           Network.Wai.OAuth.Types
 
 
-emptyOAuthParams :: OAuthParams
-emptyOAuthParams = OAuthParams "" "" Plaintext Nothing Nothing "" Nothing Nothing
-
-
 runOAuthM :: Monad m => OAuthConfig m -> Request -> OAuthM m a -> m (Either OAuthError a, Request)
 runOAuthM config req = (`runReaderT` config) . (`runStateT` req) . runEitherT . runOAuthT
 
