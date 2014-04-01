@@ -75,7 +75,7 @@ preprocessRequest = do
             (getM "oauth_callback") (getM "oauth_verifier") signature (getM "oauth_nonce") timestamp
     return OAuthState { oauthRawParams = oauths, reqParams = rest, reqUrl = url, reqMethod = requestMethod request, oauthParams = oauth }
   where
-    parseTS = mapLeft (const InvalidTimestamp) . eitherResult . parse decimal
+    parseTS = mapLeft (const InvalidTimestamp) . parseOnly decimal
 
 
 authenticated :: MonadIO m => OAuthM m OAuthParams
