@@ -50,7 +50,6 @@ emptyOAuthParams :: OAuthParams
 emptyOAuthParams = OAuthParams "" "" Plaintext Nothing Nothing "" Nothing Nothing
 
 
-
 runOAuthM :: Monad m => OAuthConfig m -> Request -> OAuthM m a -> m (Either OAuthError a, Request)
 runOAuthM config req = (`runReaderT` config) . (`runStateT` req) . runEitherT . runOAuthT
 
@@ -80,10 +79,28 @@ preprocessRequest = do
 
 authenticated :: MonadIO m => OAuthM m OAuthParams
 authenticated = do
-    oauthState <- preprocessRequest
     config <- ask
-    verifyOAuthSignature (cfgConsumerSecretLookup config) (cfgAccessTokenSecretLookup config) oauthState
-    return $ oauthParams oauthState
+    processOAuthRequest (cfgConsumerSecretLookup config) (cfgAccessTokenSecretLookup config) return
+
+noProcessing :: Monad m => OAuthParams -> OAuthM m ()
+noProcessing = const (return ())
+
+processOAuthRequest :: MonadIO m => SecretLookup m -> SecretLookup m -> (OAuthParams -> OAuthM m a) -> OAuthM m a
+processOAuthRequest consumerLookup tokenLookup customProcessing = do
+    oauth <- preprocessRequest
+    OAuthConfig {..} <- ask
+    _ <- verifyOAuthSignature consumerLookup tokenLookup oauth
+    _ <- OAuthT . EitherT . lift . lift $ do
+        maybeError <- cfgNonceTimestampCheck $ oauthParams oauth
+        return $ maybe (Right ()) Left  maybeError
+    customProcessing (oauthParams oauth)
+
+processTokenCreationRequest :: MonadIO m => SecretLookup m -> SecretLookup m -> (ByteString -> m (ByteString, ByteString)) -> (OAuthParams -> OAuthM m ()) -> OAuthM m [(ByteString, ByteString)]
+processTokenCreationRequest consumerLookup tokenLookup secretCreation customProcessing =
+    processOAuthRequest consumerLookup tokenLookup $ \params -> do
+        _ <- customProcessing params
+        (token, secret) <- liftOAuthT $ secretCreation $ opConsumerKey params
+        return [("oauth_token", token), ("oauth_token_secret", secret)]
 
 
 oneLegged :: MonadIO m => OAuthM m ()
@@ -104,28 +121,13 @@ twoLeggedAccessTokenRequest = do
 
 twoLegged :: MonadIO m => SecretLookup m -> SecretLookup m -> (ByteString -> m (ByteString, ByteString)) -> OAuthM m Response
 twoLegged consLookup tokenLookup secretCreation = do
-    responseString <- processOAuthRequest consLookup tokenLookup secretCreation noProcessing
+    responseString <- processTokenCreationRequest consLookup tokenLookup secretCreation noProcessing
     return $ mkResponse200 responseString
-
-noProcessing :: Monad m => OAuthParams -> OAuthM m ()
-noProcessing = const (return ())
-
-processOAuthRequest :: MonadIO m => SecretLookup m -> SecretLookup m -> (ByteString -> m (ByteString, ByteString)) -> (OAuthParams -> OAuthM m ()) -> OAuthM m [(ByteString, ByteString)]
-processOAuthRequest consumerLookup tokenLookup secretCreation customProcessing = do
-    oauth <- preprocessRequest
-    OAuthConfig {..} <- ask
-    OAuthT . EitherT . lift . lift $ do
-        maybeError <- cfgNonceTimestampCheck $ oauthParams oauth
-        return $ maybe (Right ()) Left  maybeError
-    _ <- customProcessing (oauthParams oauth)
-    _ <- verifyOAuthSignature consumerLookup tokenLookup oauth
-    (token, secret) <- liftOAuthT $ secretCreation $ opConsumerKey $ oauthParams oauth
-    return [("oauth_token", token), ("oauth_token_secret", secret)]
 
 threeLeggedRequestTokenRequest :: MonadIO m => OAuthM m Response
 threeLeggedRequestTokenRequest = do
     OAuthConfig {..} <- ask
-    responseParams <- processOAuthRequest cfgConsumerSecretLookup emptyTokenLookup cfgTokenGenerator noProcessing
+    responseParams <- processTokenCreationRequest cfgConsumerSecretLookup emptyTokenLookup cfgTokenGenerator noProcessing
     return $ mkResponse200 $ ("oauth_callback_confirmed", "true") : responseParams
 
 threeLeggedAccessTokenRequest :: MonadIO m => OAuthM m Response
@@ -137,7 +139,7 @@ threeLeggedAccessTokenRequest = do
                 Just ((==) storedVerifier -> True) -> oauthEither $ Right ()
                 Just wrongVerifier               -> oauthEither $ Left (InvalidVerifier wrongVerifier)
                 Nothing                          -> oauthEither $ Left (MissingParameter "oauth_verifier")
-    responseParams <- processOAuthRequest cfgConsumerSecretLookup cfgRequestTokenSecretLookup cfgTokenGenerator verifierCheck
+    responseParams <- processTokenCreationRequest cfgConsumerSecretLookup cfgRequestTokenSecretLookup cfgTokenGenerator verifierCheck
     return $ mkResponse200 responseParams
 
 
