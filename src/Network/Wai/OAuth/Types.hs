@@ -61,6 +61,7 @@ type TokenSecret = ByteString
 type Secrets = (ConsumerSecret, TokenSecret)
 type Nonce = ByteString
 type Timestamp = Int64
+type PathPart = [Text]
 
 
 newtype OAuthT r s m a = OAuthT { runOAuthT :: EitherT OAuthError (StateT s (ReaderT r m)) a } deriving (Functor, Applicative, Monad, MonadIO)

@@ -32,6 +32,7 @@ library
                        base64-bytestring,
                        base16-bytestring,
                        attoparsec,
+                       vault,
                        resourcet,
                        transformers,
                        mtl,

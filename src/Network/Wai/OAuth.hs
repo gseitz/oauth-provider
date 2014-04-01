@@ -21,7 +21,8 @@ import           Data.Digest.Pure.SHA       (bytestringDigest, hmacSha1)
 import           Data.Either.Combinators    (mapLeft)
 import           Data.Functor
 import           Data.IORef.Lifted          (newIORef, readIORef, writeIORef)
-import           Data.List                  (find, group, partition, sort)
+import           Data.List                  (find, group, isPrefixOf, partition,
+                                             sort)
 import           Data.Maybe                 (fromMaybe)
 import           Data.Monoid                (mconcat, (<>))
 import           Data.Text                  (Text)
@@ -42,6 +43,7 @@ import qualified Data.Conduit               as C
 import qualified Data.Conduit.List          as CL
 import qualified Data.Text                  as T
 import qualified Data.Text.Encoding         as E
+import qualified Data.Vault.Lazy            as V
 
 import           Network.Wai.OAuth.Types
 
@@ -56,6 +58,17 @@ runOAuthM config req = (`runReaderT` config) . (`runStateT` req) . runEitherT . 
 query :: Request -> SimpleQueryText
 query = fmap (second (fromMaybe "")) . queryToQueryText . queryString
 
+
+withOAuth :: V.Key OAuthParams -> OAuthConfig IO -> [PathPart] -> Middleware
+withOAuth paramsKey cfg mapping app req =
+    case isProtected of
+        Just _ -> do
+            (result, req') <- runOAuthM cfg req authenticated
+            either (return . errorAsResponse) (app . setParams req') result
+        Nothing -> app req
+  where
+    isProtected = find (`isPrefixOf` pathInfo req) mapping
+    setParams r p = r { vault = V.insert paramsKey p (vault r) }
 
 preprocessRequest :: MonadIO m => OAuthM m OAuthState
 preprocessRequest = do
