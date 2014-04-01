@@ -1,3 +1,6 @@
 language: haskell
 script:
-      - cabal test
+        - cabal configure --enable-tests
+        - cabal build
+        - dist/build/wai-oauth-tests/wai-oauth-tests
+
