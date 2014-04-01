@@ -173,7 +173,7 @@ genOAuthSignature OAuthParams {..} secrets method normUrl params = signature
 mkSignature :: SignatureMethod -> Secrets -> ByteString -> ByteString
 mkSignature signatureMethod (consSecret, tokenSecret) content = signature signatureMethod
   where
-    signature HMAC_SHA1 = B64.encode $ BL.toStrict $ bytestringDigest $ hmacSha1 (BL.fromStrict $ debug key) (BL.fromStrict $ debug content)
+    signature HMAC_SHA1 = B64.encode $ BL.toStrict $ bytestringDigest $ hmacSha1 (BL.fromStrict key) (BL.fromStrict content)
     signature Plaintext = key
     signature RSA_SHA1  = undefined
     key = concatParamStrings [consSecret, tokenSecret]
