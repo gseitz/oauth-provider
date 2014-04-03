@@ -19,19 +19,28 @@ import           Network.Wai                (Request)
 
 data SignatureMethod = HMAC_SHA1 | RSA_SHA1 | Plaintext deriving (Show, Enum)
 
-data OAuthRequestType = OneLegged
-                      | TwoLeggedRequest | TwoLeggedToken
-                      | ThreeLeggedRequest | ThreeLeggedAuthorize | ThreeLeggedToken
-                      deriving Show
+data TokenType = AccessToken | RequestToken deriving (Show, Eq)
+
+newtype ConsumerKey = ConsumerKey { unConsumerKey :: ByteString } deriving (Eq, Show)
+
+newtype RequestTokenKey = RequestTokenKey { unRequestTokenKey :: ByteString } deriving (Eq, Show)
+newtype AccessTokenKey = AccessTokenKey { unAccessTokenKey :: ByteString } deriving (Eq, Show)
+
+newtype Verifier = Verifier { unVerifier :: ByteString } deriving (Eq, Show)
+
+newtype Callback = Callback { unCallback :: ByteString } deriving (Eq, Show)
+
+newtype Nonce = Nonce { unNonce :: ByteString } deriving (Eq, Show)
+newtype Signature = Signature { unSignature :: ByteString } deriving (Eq, Show)
 
 data OAuthParams = OAuthParams {
-    opConsumerKey     :: ByteString,
+    opConsumerKey     :: ConsumerKey,
     opToken           :: ByteString,
     opSignatureMethod :: SignatureMethod,
-    opCallback        :: Maybe ByteString,
-    opVerifier        :: Maybe ByteString,
-    opSignature       :: ByteString,
-    opNonce           :: Maybe ByteString,
+    opCallback        :: Maybe Callback,
+    opVerifier        :: Maybe Verifier,
+    opSignature       :: Signature,
+    opNonce           :: Maybe Nonce,
     opTimestamp       :: Maybe Integer
     } deriving Show
 
@@ -42,13 +51,13 @@ data OAuthError = DuplicateParameter Text
                 | InvalidConsumerKey ByteString
                 | InvalidToken ByteString
                 | ExpiredToken ByteString
-                | InvalidSignature ByteString
+                | InvalidSignature Signature
                 | InvalidTimestamp
                 | UsedNonce
                 | ExpiredRequest
                 | MultipleOAuthParamLocations
                 | MissingHostHeader
-                | InvalidVerifier ByteString
+                | InvalidVerifier Verifier
                 deriving (Show, Eq)
 
 
@@ -59,7 +68,6 @@ type ParamString = ByteString
 type ConsumerSecret = ByteString
 type TokenSecret = ByteString
 type Secrets = (ConsumerSecret, TokenSecret)
-type Nonce = ByteString
 type Timestamp = Int64
 type PathPart = [Text]
 
@@ -79,9 +87,9 @@ instance MonadTrans (OAuthT r s) where
     lift = OAuthT . lift . lift . lift
 
 data OAuthConfig m = OAuthConfig
-    { cfgConsumerSecretLookup      :: SecretLookup m
-    , cfgAccessTokenSecretLookup   :: SecretLookup m
-    , cfgRequestTokenSecretLookup  :: SecretLookup m
+    { cfgConsumerSecretLookup      :: SecretLookup ConsumerKey m
+    , cfgAccessTokenSecretLookup   :: SecretLookup AccessTokenKey m
+    , cfgRequestTokenSecretLookup  :: SecretLookup RequestTokenKey m
     , cfgTokenGenerator            :: TokenGenerator m
     , cfgNonceTimestampCheck       :: NonceTimestampCheck m
     , cfgSupportedSignatureMethods :: [SignatureMethod]
@@ -89,19 +97,28 @@ data OAuthConfig m = OAuthConfig
     , cfgVerifierLookup            :: VerifierLookup m
     }
 
-oneLeggedConfig :: Monad m => SecretLookup m -> SecretLookup m -> NonceTimestampCheck m -> [SignatureMethod] -> OAuthConfig m
-oneLeggedConfig consumerLookup tokenLookup check methods = OAuthConfig consumerLookup tokenLookup emptyToken (const (return ("", ""))) check methods emptyLookup emptyLookup
+oneLeggedConfig :: Monad m => SecretLookup ConsumerKey m -> NonceTimestampCheck m -> [SignatureMethod] -> OAuthConfig m
+oneLeggedConfig consumerLookup check methods = OAuthConfig consumerLookup emptyTokenLookup emptyTokenLookup emptyTokenGen check methods emptyCallbackLookup emptyVerifierLookup
   where
-    emptyToken tk = return $ Left (InvalidToken tk)
+    emptyTokenGen _ = const (return ("",""))
 
-twoLeggedConfig :: Monad m => SecretLookup m -> SecretLookup m -> SecretLookup m -> NonceTimestampCheck m -> [SignatureMethod] -> OAuthConfig m
-twoLeggedConfig cons acc req check methods = OAuthConfig cons acc req (const (return ("", ""))) check methods emptyLookup emptyLookup
+twoLeggedConfig :: Monad m => SecretLookup ConsumerKey  m -> SecretLookup AccessTokenKey m -> SecretLookup RequestTokenKey m -> TokenGenerator m -> NonceTimestampCheck m -> [SignatureMethod] -> OAuthConfig m
+twoLeggedConfig cons acc req tokenGen check methods = OAuthConfig cons acc req tokenGen check methods emptyCallbackLookup emptyVerifierLookup
 
-threeLeggedConfig :: Monad m => SecretLookup m -> SecretLookup m -> SecretLookup m -> TokenGenerator m -> NonceTimestampCheck m -> [SignatureMethod] -> CallbackLookup m -> VerifierLookup m -> OAuthConfig m
+threeLeggedConfig :: Monad m => SecretLookup ConsumerKey m -> SecretLookup AccessTokenKey m -> SecretLookup RequestTokenKey m -> TokenGenerator m -> NonceTimestampCheck m -> [SignatureMethod] -> CallbackLookup m -> VerifierLookup m -> OAuthConfig m
 threeLeggedConfig = OAuthConfig
 
-emptyLookup :: Monad m => Lookup m
-emptyLookup = const $ return ""
+emptyVerifierLookup :: Monad m => VerifierLookup m
+emptyVerifierLookup = const . return . Verifier $ ""
+
+emptyCallbackLookup :: Monad m => CallbackLookup m
+emptyCallbackLookup = const . return . Callback $ ""
+
+emptyTokenLookup :: Monad m => SecretLookup t m
+emptyTokenLookup = const (return $ Right "")
+
+bsSecretLookup :: Monad m => (ByteString -> t) -> SecretLookup t m -> SecretLookup ByteString m
+bsSecretLookup f l = l . f
 
 data OAuthState = OAuthState
     { oauthRawParams :: SimpleQueryText
@@ -111,9 +128,9 @@ data OAuthState = OAuthState
     , oauthParams    :: OAuthParams
     }
 
-type SecretLookup m = ByteString -> m (Either OAuthError ByteString)
-type Lookup m = (ByteString, ByteString) -> m ByteString
-type VerifierLookup m = Lookup m
-type CallbackLookup m = Lookup m
+type SecretLookup k m = k -> m (Either OAuthError ByteString)
+type Lookup t m  = (ConsumerKey, ByteString) -> m t
+type VerifierLookup m = Lookup Verifier m
+type CallbackLookup m = Lookup Callback m
 type NonceTimestampCheck m = OAuthParams -> m (Maybe OAuthError)
-type TokenGenerator m = ByteString -> m (ByteString, ByteString)
+type TokenGenerator m = TokenType -> ConsumerKey -> m (ByteString, ByteString)
