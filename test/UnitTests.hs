@@ -18,11 +18,11 @@ tests = testGroup "HUnit tests" [
 
 mkHmacSha1SignatureTest :: TestTree
 mkHmacSha1SignatureTest = testCase "HMAC-SHA1 signature" $
-    mkSignature HMAC_SHA1 ("kd94hf93k423kf44", "pfkkdhi9sl3r4s00") baseString @?= "QnAoyJcVeC9988ZnawQI+K6XrRA="
+    mkSignature HMAC_SHA1 ("kd94hf93k423kf44", "pfkkdhi9sl3r4s00") baseString @?= Signature "QnAoyJcVeC9988ZnawQI+K6XrRA="
 
 mkPlainTextSignatureTest :: TestTree
 mkPlainTextSignatureTest = testCase "PLAINTEXT signature" $
-    mkSignature Plaintext ("foo", "bar") undefined @?= "foo&bar"
+    mkSignature Plaintext ("foo", "bar") undefined @?= Signature "foo&bar"
 
 extractOAuthParametersTests :: TestTree
 extractOAuthParametersTests = testGroup "OAuth param extraction tests" [
