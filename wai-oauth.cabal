@@ -13,7 +13,8 @@ cabal-version:       >=1.10
 
 library
    exposed-modules:     Network.Wai.OAuth,
-                        Network.Wai.OAuth.Types
+                        Network.Wai.OAuth.Types,
+                        Network.Wai.OAuth.Internal
   
   -- other-modules:       
   

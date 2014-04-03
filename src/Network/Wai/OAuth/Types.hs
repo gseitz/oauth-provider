@@ -2,7 +2,54 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE OverloadedStrings          #-}
-module Network.Wai.OAuth.Types where
+module Network.Wai.OAuth.Types
+    (
+      SignatureMethod(..)
+    , TokenType(..)
+    , ConsumerKey(..)
+    , RequestTokenKey(..)
+    , AccessTokenKey(..)
+    , Verifier(..)
+    , Callback(..)
+    , Nonce(..)
+    , Signature(..)
+    , OAuthParams(..)
+    , OAuthError(..)
+    , emptyTokenLookup
+
+    -- OAuth configuration
+    , OAuthConfig(..)
+    , oneLeggedConfig
+    , twoLeggedConfig
+    , threeLeggedConfig
+
+    -- Type aliases
+    , SimpleQueryText
+    , RequestMethod
+    , NormalizedURL
+    , ParamString
+    , ConsumerSecret
+    , TokenSecret
+    , Secrets
+    , Timestamp
+    , PathPart
+    , SecretLookup
+    , Lookup
+    , VerifierLookup
+    , CallbackLookup
+    , NonceTimestampCheck
+    , TokenGenerator
+
+    -- Monad
+    , OAuthT(..)
+    , OAuthM
+    ) where
+
+
+
+
+
+
 
 import           Control.Applicative        (Applicative)
 import           Control.Concurrent.MonadIO (MonadIO)
@@ -44,7 +91,7 @@ data OAuthParams = OAuthParams {
     opVerifier        :: Maybe Verifier,
     opSignature       :: Signature,
     opNonce           :: Maybe Nonce,
-    opTimestamp       :: Maybe Integer
+    opTimestamp       :: Maybe Timestamp
     } deriving Show
 
 data OAuthError = DuplicateParameter Text
@@ -120,16 +167,6 @@ emptyCallbackLookup = const . return . Callback $ ""
 emptyTokenLookup :: Monad m => SecretLookup t m
 emptyTokenLookup = const (return $ Right "")
 
-bsSecretLookup :: Monad m => (ByteString -> t) -> SecretLookup t m -> SecretLookup ByteString m
-bsSecretLookup f l = l . f
-
-data OAuthState = OAuthState
-    { oauthRawParams :: SimpleQueryText
-    , reqParams      :: SimpleQueryText
-    , reqUrl         :: ByteString
-    , reqMethod      :: ByteString
-    , oauthParams    :: OAuthParams
-    }
 
 type SecretLookup k m = k -> m (Either OAuthError ByteString)
 type Lookup t m  = (ConsumerKey, ByteString) -> m t

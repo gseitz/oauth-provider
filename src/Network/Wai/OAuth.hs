@@ -45,6 +45,7 @@ import qualified Data.Text                  as T
 import qualified Data.Text.Encoding         as E
 import qualified Data.Vault.Lazy            as V
 
+import           Network.Wai.OAuth.Internal
 import           Network.Wai.OAuth.Types
 
 
