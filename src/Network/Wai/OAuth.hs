@@ -181,7 +181,8 @@ mkSignature signatureMethod (consSecret, tokenSecret) content = Signature $ sign
   where
     signature HMAC_SHA1 = B64.encode $ BL.toStrict $ bytestringDigest $ hmacSha1 (BL.fromStrict key) (BL.fromStrict content)
     signature Plaintext = key
-    signature RSA_SHA1  = undefined
+    -- RSA_SHA1 not supported at this point
+    -- signature RSA_SHA1  = undefined
     key = concatParamStrings [consSecret, tokenSecret]
 
 genSignatureBase :: RequestMethod -> NormalizedURL -> ByteString -> ByteString
@@ -271,8 +272,9 @@ liftOAuthT = OAuthT . lift .lift . lift
 
 extractSignatureMethod :: ByteString -> Either OAuthError SignatureMethod
 extractSignatureMethod "HMAC-SHA1" = Right HMAC_SHA1
-extractSignatureMethod "RSA-SHA1"  = Right RSA_SHA1
 extractSignatureMethod "PLAINTEXT" = Right Plaintext
+-- wai-oauth doesn't support RSA-SHA1 at this point
+-- extractSignatureMethod "RSA-SHA1"  = Right RSA_SHA1
 extractSignatureMethod method      = Left $ UnsupportedSignatureMethod method
 
 oauthParamNames :: [Text]

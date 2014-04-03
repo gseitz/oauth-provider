@@ -17,7 +17,10 @@ import           Data.Int                   (Int64)
 import           Data.Text                  (Text)
 import           Network.Wai                (Request)
 
-data SignatureMethod = HMAC_SHA1 | RSA_SHA1 | Plaintext deriving (Show, Enum)
+data SignatureMethod = HMAC_SHA1
+                     | Plaintext
+                     {- | RSA_SHA1  -- not supported at this point-}
+                     deriving (Show, Enum)
 
 data TokenType = AccessToken | RequestToken deriving (Show, Eq)
 
