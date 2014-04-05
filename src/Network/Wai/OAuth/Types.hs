@@ -61,7 +61,7 @@ import           Network.Wai                (Request)
 data SignatureMethod = HMAC_SHA1
                      | Plaintext
                      {- | RSA_SHA1  -- not supported at this point-}
-                     deriving (Show, Enum)
+                     deriving (Show, Enum, Eq)
 
 data TokenType = AccessToken | RequestToken deriving (Show, Eq)
 
