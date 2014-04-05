@@ -8,7 +8,7 @@ import qualified Data.ByteString as B
 import qualified Network.HTTP.Types as H
 import Network.Wai
 
-import Network.Wai.OAuth
+import Network.Wai.OAuth.Internal
 import Network.Wai.OAuth.Types
 
 tests :: TestTree
@@ -45,7 +45,7 @@ oauthParameterConsistency = testGroup "OAuth parameter consistency" $
 
 generateBaseString = undefined
   where
-    request = defaultRequest 
+    request = defaultRequest
         { requestMethod = H.methodGet
         , rawPathInfo = "/"
         , rawQueryString = "?size-original&file=vacation&oauth_consumer_key=dpf43f3p2l4k3l03&oauth_token=nnch734d00sl2jdk&oauth_nonce=kllo9940pd9333jh&oauth_timestamp=1191242096&oauth_signature_method=HMAC-SHA1&oauth_version=1.0&oauth_signature=QnAoyJcVeC9988ZnawQI%2BK6XrRA%3D"
