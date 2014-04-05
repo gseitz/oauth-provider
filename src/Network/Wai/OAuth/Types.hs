@@ -34,6 +34,9 @@ module Network.Wai.OAuth.Types
     , Timestamp
     , PathPart
     , SecretLookup
+    , ConsumerSecretLookup
+    , AccessSecretLookup
+    , RequestSecretLookup
     , Lookup
     , VerifierLookup
     , CallbackLookup
@@ -118,10 +121,10 @@ oneLeggedConfig consumerLookup check methods = OAuthConfig consumerLookup emptyT
   where
     emptyTokenGen _ = const (return ("",""))
 
-twoLeggedConfig :: Monad m => SecretLookup ConsumerKey  m -> SecretLookup AccessTokenKey m -> SecretLookup RequestTokenKey m -> TokenGenerator m -> NonceTimestampCheck m -> [SignatureMethod] -> OAuthConfig m
+twoLeggedConfig :: Monad m => ConsumerSecretLookup m -> AccessSecretLookup m -> RequestSecretLookup m -> TokenGenerator m -> NonceTimestampCheck m -> [SignatureMethod] -> OAuthConfig m
 twoLeggedConfig cons acc req tokenGen check methods = OAuthConfig cons acc req tokenGen check methods emptyCallbackLookup emptyVerifierLookup
 
-threeLeggedConfig :: Monad m => SecretLookup ConsumerKey m -> SecretLookup AccessTokenKey m -> SecretLookup RequestTokenKey m -> TokenGenerator m -> NonceTimestampCheck m -> [SignatureMethod] -> CallbackLookup m -> VerifierLookup m -> OAuthConfig m
+threeLeggedConfig :: Monad m => ConsumerSecretLookup m -> AccessSecretLookup m -> RequestSecretLookup m -> TokenGenerator m -> NonceTimestampCheck m -> [SignatureMethod] -> CallbackLookup m -> VerifierLookup m -> OAuthConfig m
 threeLeggedConfig = OAuthConfig
 
 type SimpleQueryText = [(Text, Text)]
@@ -132,12 +135,16 @@ type TokenSecret = ByteString
 type Secrets = (ConsumerSecret, TokenSecret)
 type Timestamp = Int64
 type PathPart = [Text]
-type SecretLookup k m = k -> m (Either OAuthError ByteString)
 type Lookup t m  = (ConsumerKey, ByteString) -> m t
 type VerifierLookup m = Lookup Verifier m
 type CallbackLookup m = Lookup Callback m
 type NonceTimestampCheck m = OAuthParams -> m (Maybe OAuthError)
 type TokenGenerator m = TokenType -> ConsumerKey -> m (ByteString, ByteString)
+
+type SecretLookup k m = k -> m (Either OAuthError ByteString)
+type ConsumerSecretLookup m = SecretLookup ConsumerKey m
+type AccessSecretLookup m = SecretLookup AccessTokenKey m
+type RequestSecretLookup m = SecretLookup RequestTokenKey m
 
 newtype OAuthT r s m a = OAuthT { runOAuthT :: EitherT OAuthError (StateT s (ReaderT r m)) a } deriving (Functor, Applicative, Monad, MonadIO)
 type OAuthM m a = OAuthT (OAuthConfig m) Request m  a
