@@ -45,7 +45,7 @@ import           Network.Wai.OAuth.Internal
 import           Network.Wai.OAuth.Types
 
 
-withOAuth :: V.Key OAuthParams -> OAuthConfig IO -> [PathPart] -> Middleware
+withOAuth :: V.Key OAuthParams -> OAuthConfig IO -> [PathParts] -> Middleware
 withOAuth paramsKey cfg mapping app req =
     case isProtected of
         Just _ -> do

@@ -34,7 +34,7 @@ module Network.Wai.OAuth.Types
     , TokenSecret
     , Secrets
     , Timestamp
-    , PathPart
+    , PathParts
     , SecretLookup
     , ConsumerSecretLookup
     , AccessSecretLookup
@@ -141,7 +141,7 @@ type ConsumerSecret = Secret
 type TokenSecret = Secret
 type Secrets = (ConsumerSecret, TokenSecret)
 type Timestamp = Int64
-type PathPart = [Text]
+type PathParts = [Text]
 type Lookup t m  = (ConsumerKey, ByteString) -> m t
 type VerifierLookup m = Lookup Verifier m
 type CallbackLookup m = Lookup Callback m
