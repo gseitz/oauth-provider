@@ -2,6 +2,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE OverloadedStrings          #-}
+
 module Network.Wai.OAuth.Types
     (
       SignatureMethod(..)
@@ -27,7 +28,6 @@ module Network.Wai.OAuth.Types
     , SimpleQueryText
     , RequestMethod
     , NormalizedURL
-    , ParamString
     , ConsumerSecret
     , TokenSecret
     , Secrets
@@ -44,12 +44,6 @@ module Network.Wai.OAuth.Types
     , OAuthT(..)
     , OAuthM
     ) where
-
-
-
-
-
-
 
 import           Control.Applicative        (Applicative)
 import           Control.Concurrent.MonadIO (MonadIO)
@@ -71,17 +65,15 @@ data SignatureMethod = HMAC_SHA1
 
 data TokenType = AccessToken | RequestToken deriving (Show, Eq)
 
-newtype ConsumerKey = ConsumerKey { unConsumerKey :: ByteString } deriving (Eq, Show)
+newtype ConsumerKey = ConsumerKey ByteString deriving (Eq, Show)
+newtype RequestTokenKey = RequestTokenKey ByteString deriving (Eq, Show)
+newtype AccessTokenKey = AccessTokenKey ByteString deriving (Eq, Show)
 
-newtype RequestTokenKey = RequestTokenKey { unRequestTokenKey :: ByteString } deriving (Eq, Show)
-newtype AccessTokenKey = AccessTokenKey { unAccessTokenKey :: ByteString } deriving (Eq, Show)
+newtype Verifier = Verifier ByteString deriving (Eq, Show)
+newtype Callback = Callback ByteString deriving (Eq, Show)
 
-newtype Verifier = Verifier { unVerifier :: ByteString } deriving (Eq, Show)
-
-newtype Callback = Callback { unCallback :: ByteString } deriving (Eq, Show)
-
-newtype Nonce = Nonce { unNonce :: ByteString } deriving (Eq, Show)
-newtype Signature = Signature { unSignature :: ByteString } deriving (Eq, Show)
+newtype Nonce = Nonce ByteString deriving (Eq, Show)
+newtype Signature = Signature ByteString deriving (Eq, Show)
 
 data OAuthParams = OAuthParams {
     opConsumerKey     :: ConsumerKey,
@@ -110,32 +102,6 @@ data OAuthError = DuplicateParameter Text
                 | InvalidVerifier Verifier
                 deriving (Show, Eq)
 
-
-type SimpleQueryText = [(Text, Text)]
-type RequestMethod = ByteString
-type NormalizedURL = ByteString
-type ParamString = ByteString
-type ConsumerSecret = ByteString
-type TokenSecret = ByteString
-type Secrets = (ConsumerSecret, TokenSecret)
-type Timestamp = Int64
-type PathPart = [Text]
-
-
-newtype OAuthT r s m a = OAuthT { runOAuthT :: EitherT OAuthError (StateT s (ReaderT r m)) a } deriving (Functor, Applicative, Monad, MonadIO)
-type OAuthM m a = OAuthT (OAuthConfig m) Request m  a
-
-instance Monad m => MonadState s (OAuthT r s m) where
-    get = OAuthT get
-    put s = OAuthT $ put s
-
-instance Monad m => MonadReader r (OAuthT r s m) where
-    ask = OAuthT ask
-    local f r = OAuthT . local f $ runOAuthT r
-
-instance MonadTrans (OAuthT r s) where
-    lift = OAuthT . lift . lift . lift
-
 data OAuthConfig m = OAuthConfig
     { cfgConsumerSecretLookup      :: SecretLookup ConsumerKey m
     , cfgAccessTokenSecretLookup   :: SecretLookup AccessTokenKey m
@@ -158,6 +124,36 @@ twoLeggedConfig cons acc req tokenGen check methods = OAuthConfig cons acc req t
 threeLeggedConfig :: Monad m => SecretLookup ConsumerKey m -> SecretLookup AccessTokenKey m -> SecretLookup RequestTokenKey m -> TokenGenerator m -> NonceTimestampCheck m -> [SignatureMethod] -> CallbackLookup m -> VerifierLookup m -> OAuthConfig m
 threeLeggedConfig = OAuthConfig
 
+type SimpleQueryText = [(Text, Text)]
+type RequestMethod = ByteString
+type NormalizedURL = ByteString
+type ConsumerSecret = ByteString
+type TokenSecret = ByteString
+type Secrets = (ConsumerSecret, TokenSecret)
+type Timestamp = Int64
+type PathPart = [Text]
+type SecretLookup k m = k -> m (Either OAuthError ByteString)
+type Lookup t m  = (ConsumerKey, ByteString) -> m t
+type VerifierLookup m = Lookup Verifier m
+type CallbackLookup m = Lookup Callback m
+type NonceTimestampCheck m = OAuthParams -> m (Maybe OAuthError)
+type TokenGenerator m = TokenType -> ConsumerKey -> m (ByteString, ByteString)
+
+newtype OAuthT r s m a = OAuthT { runOAuthT :: EitherT OAuthError (StateT s (ReaderT r m)) a } deriving (Functor, Applicative, Monad, MonadIO)
+type OAuthM m a = OAuthT (OAuthConfig m) Request m  a
+
+instance Monad m => MonadState s (OAuthT r s m) where
+    get = OAuthT get
+    put s = OAuthT $ put s
+
+instance Monad m => MonadReader r (OAuthT r s m) where
+    ask = OAuthT ask
+    local f r = OAuthT . local f $ runOAuthT r
+
+instance MonadTrans (OAuthT r s) where
+    lift = OAuthT . lift . lift . lift
+
+
 emptyVerifierLookup :: Monad m => VerifierLookup m
 emptyVerifierLookup = const . return . Verifier $ ""
 
@@ -168,9 +164,3 @@ emptyTokenLookup :: Monad m => SecretLookup t m
 emptyTokenLookup = const (return $ Right "")
 
 
-type SecretLookup k m = k -> m (Either OAuthError ByteString)
-type Lookup t m  = (ConsumerKey, ByteString) -> m t
-type VerifierLookup m = Lookup Verifier m
-type CallbackLookup m = Lookup Callback m
-type NonceTimestampCheck m = OAuthParams -> m (Maybe OAuthError)
-type TokenGenerator m = TokenType -> ConsumerKey -> m (ByteString, ByteString)
