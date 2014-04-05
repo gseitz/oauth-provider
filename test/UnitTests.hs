@@ -13,29 +13,26 @@ import Network.Wai.OAuth.Types
 
 tests :: TestTree
 tests = testGroup "HUnit tests" [
-    mkHmacSha1SignatureTest, mkPlainTextSignatureTest, extractOAuthParametersTests
+    signatureTests, extractOAuthParametersTests
     ]
 
-mkHmacSha1SignatureTest :: TestTree
-mkHmacSha1SignatureTest = testCase "HMAC-SHA1 signature" $
-    mkSignature HMAC_SHA1 ("kd94hf93k423kf44", "pfkkdhi9sl3r4s00") baseString @?= Signature "QnAoyJcVeC9988ZnawQI+K6XrRA="
-
-mkPlainTextSignatureTest :: TestTree
-mkPlainTextSignatureTest = testCase "PLAINTEXT signature" $
-    mkSignature Plaintext ("foo", "bar") undefined @?= Signature "foo&bar"
-
-extractOAuthParametersTests :: TestTree
-extractOAuthParametersTests = testGroup "OAuth param extraction tests" [
-        oauthParameterConsistency
+signatureTests :: TestTree
+signatureTests = testGroup "Signature tests" $ [
+        hmacSha1SignatureTest, plainTextSignatureTest, rsaSha1SignatureTest
     ]
   where
-    duplicateParamsTest = testCase "duplicate parameters"
+    hmacSha1SignatureTest = testCase "HMAC-SHA1 signature" $
+        mkSignature HMAC_SHA1 ("kd94hf93k423kf44", "pfkkdhi9sl3r4s00") baseString @?= Signature "QnAoyJcVeC9988ZnawQI+K6XrRA="
+    plainTextSignatureTest = testCase "PLAINTEXT signature" $
+        mkSignature Plaintext ("foo", "bar") undefined @?= Signature "foo&bar"
+    rsaSha1SignatureTest = testCase "RSA-SHA1 signature is unsupported" $
+        extractSignatureMethod "RSA-SHA1" @?= Left (UnsupportedSignatureMethod "RSA-SHA1")
 
-oauthParameterConsistency :: TestTree
-oauthParameterConsistency = testGroup "OAuth parameter consistency" $
-    [ testCase "multiple oauth parameter locations" $ tryInOrder params1 params2 [] @?= Left MultipleOAuthParamLocations
-    , testCase "detect duplicate parameters" $ tryInOrder params3 [] [] @?= Left (DuplicateParameter "oauth_nonce")
-    , testCase "detect unsupported parameters" $ tryInOrder params4 [] [] @?= Left (UnsupportedParameter "oauth_foo")
+extractOAuthParametersTests :: TestTree
+extractOAuthParametersTests = testGroup "OAuth param extraction tests"
+    [ testCase "multiple oauth parameter locations" $ validateAndExtractParams params1 params2 [] @?= Left MultipleOAuthParamLocations
+    , testCase "detect duplicate parameters" $ validateAndExtractParams params3 [] [] @?= Left (DuplicateParameter "oauth_nonce")
+    , testCase "detect unsupported parameters" $ validateAndExtractParams params4 [] [] @?= Left (UnsupportedParameter "oauth_foo")
     ]
   where
     params1 = [("oauth_nonce", "abc123")]

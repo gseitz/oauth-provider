@@ -96,12 +96,12 @@ splitOAuthParams :: MonadIO m => OAuthM m (SimpleQueryText, SimpleQueryText)
 splitOAuthParams = do
     req <- get
     formBody <- formBodyParameters
-    oauthEither $ tryInOrder (authHeaderParams req) formBody (query req)
+    oauthEither $ validateAndExtractParams (authHeaderParams req) formBody (query req)
   where
     authHeaderParams req = fromMaybe [] $ (maybeResult . parse parseAuthHeader) =<< lookup "Authentication" (requestHeaders req)
 
-tryInOrder :: SimpleQueryText -> SimpleQueryText -> SimpleQueryText -> Either OAuthError (SimpleQueryText, SimpleQueryText)
-tryInOrder authParams bodyParams queryParams =
+validateAndExtractParams :: SimpleQueryText -> SimpleQueryText -> SimpleQueryText -> Either OAuthError (SimpleQueryText, SimpleQueryText)
+validateAndExtractParams authParams bodyParams queryParams =
     case (hasParams authParams, hasParams bodyParams, hasParams queryParams) of
         (True, False, False)  -> extractParams authParams bodyParams queryParams
         (False, True, False)  -> extractParams bodyParams queryParams authParams
