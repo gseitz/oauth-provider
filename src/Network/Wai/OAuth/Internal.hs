@@ -106,7 +106,7 @@ validateAndExtractParams authParams bodyParams queryParams =
         (True, False, False)  -> extractParams authParams bodyParams queryParams
         (False, True, False)  -> extractParams bodyParams queryParams authParams
         (False, False, True)  -> extractParams queryParams authParams bodyParams
-        (False, False, False) -> Left $ MissingParameter "oauth_consumer_key"
+        (False, False, False) -> Left $ MissingParameter "oauth_consumer_key" -- picking any of the always-mandatory parameters
         _                     -> Left MultipleOAuthParamLocations
   where
     hasParams = any isOAuthParam

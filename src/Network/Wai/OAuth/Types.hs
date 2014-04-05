@@ -18,13 +18,13 @@ module Network.Wai.OAuth.Types
     , OAuthError(..)
     , emptyTokenLookup
 
-    -- OAuth configuration
+    -- * OAuth configuration
     , OAuthConfig(..)
     , oneLeggedConfig
     , twoLeggedConfig
     , threeLeggedConfig
 
-    -- Type aliases
+    -- * Type aliases
     , SimpleQueryText
     , RequestMethod
     , NormalizedURL
@@ -40,7 +40,7 @@ module Network.Wai.OAuth.Types
     , NonceTimestampCheck
     , TokenGenerator
 
-    -- Monad
+    -- * Monad
     , OAuthT(..)
     , OAuthM
     ) where
