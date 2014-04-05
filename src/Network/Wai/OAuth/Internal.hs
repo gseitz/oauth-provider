@@ -58,7 +58,7 @@ genOAuthSignature OAuthParams {..} secrets method normUrl params = signature
     paramString = genParamString params
 
 mkSignature :: SignatureMethod -> Secrets -> ByteString -> Signature
-mkSignature signatureMethod (consSecret, tokenSecret) content = Signature $ signature signatureMethod
+mkSignature signatureMethod (Secret consSecret, Secret tokenSecret) content = Signature $ signature signatureMethod
   where
     signature HMAC_SHA1 = B64.encode $ BL.toStrict $ bytestringDigest $ hmacSha1 (BL.fromStrict key) (BL.fromStrict content)
     signature Plaintext = key

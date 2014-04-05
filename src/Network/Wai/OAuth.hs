@@ -94,11 +94,11 @@ processOAuthRequest tokenLookup customProcessing = do
         return $ maybe (Right ()) Left  maybeError
     customProcessing (oauthParams oauth)
 
-processTokenCreationRequest :: MonadIO m => SecretLookup ByteString m -> (ConsumerKey -> m (ByteString, ByteString)) -> (OAuthParams -> OAuthM m ()) -> OAuthM m [(ByteString, ByteString)]
+processTokenCreationRequest :: MonadIO m => SecretLookup ByteString m -> (ConsumerKey -> m (Token, Secret)) -> (OAuthParams -> OAuthM m ()) -> OAuthM m [(ByteString, ByteString)]
 processTokenCreationRequest tokenLookup secretCreation customProcessing =
     processOAuthRequest tokenLookup $ \params -> do
         _ <- customProcessing params
-        (token, secret) <- liftOAuthT $ secretCreation $ opConsumerKey params
+        (Token token, Secret secret) <- liftOAuthT $ secretCreation $ opConsumerKey params
         return [("oauth_token", token), ("oauth_token_secret", secret)]
 
 
@@ -115,7 +115,7 @@ twoLeggedAccessTokenRequest = do
     OAuthConfig {..} <- ask
     twoLegged (bsSecretLookup RequestTokenKey cfgRequestTokenSecretLookup) (cfgTokenGenerator AccessToken)
 
-twoLegged :: MonadIO m => SecretLookup ByteString m -> (ConsumerKey -> m (ByteString, ByteString)) -> OAuthM m Response
+twoLegged :: MonadIO m => SecretLookup ByteString m -> (ConsumerKey -> m (Token, Secret)) -> OAuthM m Response
 twoLegged tokenLookup secretCreation = do
     responseString <- processTokenCreationRequest tokenLookup secretCreation noProcessing
     return $ mkResponse200 responseString

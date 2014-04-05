@@ -10,6 +10,8 @@ module Network.Wai.OAuth.Types
     , ConsumerKey(..)
     , RequestTokenKey(..)
     , AccessTokenKey(..)
+    , Token(..)
+    , Secret(..)
     , Verifier(..)
     , Callback(..)
     , Nonce(..)
@@ -59,6 +61,7 @@ import           Control.Monad.Trans.Reader (ReaderT, runReaderT)
 import           Control.Monad.Trans.State  (StateT (..), runStateT)
 import           Data.ByteString            (ByteString)
 import           Data.Int                   (Int64)
+import           Data.String                (IsString)
 import           Data.Text                  (Text)
 import           Network.Wai                (Request)
 
@@ -128,11 +131,14 @@ twoLeggedConfig cons acc req tokenGen check methods = OAuthConfig cons acc req t
 threeLeggedConfig :: Monad m => ConsumerSecretLookup m -> AccessSecretLookup m -> RequestSecretLookup m -> TokenGenerator m -> NonceTimestampCheck m -> [SignatureMethod] -> CallbackLookup m -> VerifierLookup m -> OAuthConfig m
 threeLeggedConfig = OAuthConfig
 
+newtype Token = Token ByteString deriving (Show, Eq, IsString)
+newtype Secret = Secret ByteString deriving (Show, Eq, IsString)
+
 type SimpleQueryText = [(Text, Text)]
 type RequestMethod = ByteString
 type NormalizedURL = ByteString
-type ConsumerSecret = ByteString
-type TokenSecret = ByteString
+type ConsumerSecret = Secret
+type TokenSecret = Secret
 type Secrets = (ConsumerSecret, TokenSecret)
 type Timestamp = Int64
 type PathPart = [Text]
@@ -140,9 +146,9 @@ type Lookup t m  = (ConsumerKey, ByteString) -> m t
 type VerifierLookup m = Lookup Verifier m
 type CallbackLookup m = Lookup Callback m
 type NonceTimestampCheck m = OAuthParams -> m (Maybe OAuthError)
-type TokenGenerator m = TokenType -> ConsumerKey -> m (ByteString, ByteString)
+type TokenGenerator m = TokenType -> ConsumerKey -> m (Token, Secret)
 
-type SecretLookup k m = k -> m (Either OAuthError ByteString)
+type SecretLookup k m = k -> m (Either OAuthError Secret)
 type ConsumerSecretLookup m = SecretLookup ConsumerKey m
 type AccessSecretLookup m = SecretLookup AccessTokenKey m
 type RequestSecretLookup m = SecretLookup RequestTokenKey m
