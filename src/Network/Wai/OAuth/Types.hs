@@ -46,6 +46,7 @@ module Network.Wai.OAuth.Types
     -- * Monad
     , OAuthT(..)
     , OAuthM
+    , runOAuthM
     ) where
 
 import           Control.Applicative        (Applicative)
@@ -53,9 +54,9 @@ import           Control.Concurrent.MonadIO (MonadIO)
 import           Control.Monad.Reader       (MonadReader (..))
 import           Control.Monad.State        (MonadState, get, put)
 import           Control.Monad.Trans        (MonadTrans, lift)
-import           Control.Monad.Trans.Either (EitherT)
-import           Control.Monad.Trans.Reader (ReaderT)
-import           Control.Monad.Trans.State  (StateT (..))
+import           Control.Monad.Trans.Either (EitherT, runEitherT)
+import           Control.Monad.Trans.Reader (ReaderT, runReaderT)
+import           Control.Monad.Trans.State  (StateT (..), runStateT)
 import           Data.ByteString            (ByteString)
 import           Data.Int                   (Int64)
 import           Data.Text                  (Text)
@@ -148,6 +149,9 @@ type RequestSecretLookup m = SecretLookup RequestTokenKey m
 
 newtype OAuthT r s m a = OAuthT { runOAuthT :: EitherT OAuthError (StateT s (ReaderT r m)) a } deriving (Functor, Applicative, Monad, MonadIO)
 type OAuthM m a = OAuthT (OAuthConfig m) Request m  a
+
+runOAuthM :: Monad m => OAuthConfig m -> Request -> OAuthM m a -> m (Either OAuthError a, Request)
+runOAuthM config req = (`runReaderT` config) . (`runStateT` req) . runEitherT . runOAuthT
 
 instance Monad m => MonadState s (OAuthT r s m) where
     get = OAuthT get

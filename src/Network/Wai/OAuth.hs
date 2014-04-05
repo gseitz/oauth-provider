@@ -17,10 +17,12 @@ module Network.Wai.OAuth
     ) where
 
 import           Control.Error.Util         (note)
+import           Control.Monad              (mfilter, unless)
+import           Control.Monad.IO.Class     (MonadIO)
 import           Control.Monad.Reader       (ask)
-import           Control.Monad.State
-import           Control.Monad.Trans.Either
-import           Control.Monad.Trans.Reader (runReaderT)
+import           Control.Monad.State        (get)
+import           Control.Monad.Trans.Class  (lift)
+import           Control.Monad.Trans.Either (EitherT (..))
 import           Data.Attoparsec.Char8      (decimal, parseOnly)
 import           Data.ByteString            (ByteString)
 import           Data.Either.Combinators    (mapLeft)
@@ -30,7 +32,8 @@ import           Data.Maybe                 (fromMaybe)
 import           Data.Monoid                ((<>))
 import           Network.HTTP.Types         (badRequest400, hContentType, ok200,
                                              unauthorized401)
-import           Network.Wai
+import           Network.Wai                (Middleware, Response, pathInfo,
+                                             requestMethod, responseLBS, vault)
 
 import qualified Data.ByteString            as B
 import qualified Data.ByteString.Lazy       as BL
@@ -40,10 +43,6 @@ import qualified Data.Vault.Lazy            as V
 
 import           Network.Wai.OAuth.Internal
 import           Network.Wai.OAuth.Types
-
-
-runOAuthM :: Monad m => OAuthConfig m -> Request -> OAuthM m a -> m (Either OAuthError a, Request)
-runOAuthM config req = (`runReaderT` config) . (`runStateT` req) . runEitherT . runOAuthT
 
 
 withOAuth :: V.Key OAuthParams -> OAuthConfig IO -> [PathPart] -> Middleware
@@ -69,7 +68,7 @@ parseRequest = do
         signMeth <- getE "oauth_signature_method" >>= extractSignatureMethod
         signature <- Signature <$> getE "oauth_signature"
         consKey <- ConsumerKey <$> getE "oauth_consumer_key"
-        timestamp <- maybe (Right Nothing) (fmap Just) $ parseTS <$> getM "oauth_timestamp"
+        timestamp <- maybe (Right Nothing) (fmap Just) (parseTS <$> getM "oauth_timestamp")
         return $ OAuthParams consKey (getOrEmpty "oauth_token") signMeth
             (Callback <$> getM "oauth_callback") (Verifier <$> getM "oauth_verifier") signature (Nonce <$> getM "oauth_nonce") timestamp
     return OAuthState { oauthRawParams = oauths, reqParams = rest, reqUrl = url, reqMethod = requestMethod request, oauthParams = oauth }
