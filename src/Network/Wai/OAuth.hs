@@ -44,8 +44,17 @@ import qualified Data.Vault.Lazy            as V
 import           Network.Wai.OAuth.Internal
 import           Network.Wai.OAuth.Types
 
-
-withOAuth :: V.Key OAuthParams -> OAuthConfig IO -> [PathParts] -> Middleware
+-- | 'withOAuth' acts as a 'Middleware' and intercepts requests to check for the validity of the provided OAuth parameters.
+-- The given 'PathParts' are used as prefixes for paths that are only accessible with a valid OAuth request.
+--
+-- Notice that this just triggers "wai-oauth" to check whether the request itself is a syntactically valid OAuth request with valid and authenticated tokens.
+-- The actual authorization needs to be done by the application itself. For this purpose, the extracted 'OAuthParams' can be accessed
+-- with the given 'V.Key OAuthParams' from the requests 'V.Vault'.
+withOAuth :: MonadIO m =>
+       V.Key OAuthParams -- ^ The 'V.Key' with which the 'OAuthParams' can be looked up in the request handling of an 'Application' further down the line.
+    -> OAuthConfig IO -- ^ An 'OAuthConfig' is best created with one of 'oneLeggedConfig', 'twoLeggedConfig', 'threeLeggedConfig'.
+    -> [PathParts] -- ^ These are the prefixes for request paths that need to be authenticated OAuth requests.
+    -> Middleware
 withOAuth paramsKey cfg mapping app req =
     case needsProtection of
         Just _ -> do

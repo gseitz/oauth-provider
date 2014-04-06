@@ -65,9 +65,10 @@ import           Data.String                (IsString)
 import           Data.Text                  (Text)
 import           Network.Wai                (Request)
 
-data SignatureMethod = HMAC_SHA1
-                     | Plaintext
-                     {- | RSA_SHA1  -- not supported at this point-}
+
+data SignatureMethod = HMAC_SHA1 -- ^ <http://tools.ietf.org/html/rfc5849#section-3.4.2 RFC5849#3.4.2>
+                     | Plaintext -- ^ <http://tools.ietf.org/html/rfc5849#section-3.4.4 RFC5849#3.4.4>
+                     {-- RSA_SHA1  -- not supported at this point --}
                      deriving (Show, Enum, Eq)
 
 data TokenType = AccessToken | RequestToken deriving (Show, Eq)
@@ -146,6 +147,7 @@ type Lookup t m  = (ConsumerKey, ByteString) -> m t
 type VerifierLookup m = Lookup Verifier m
 type CallbackLookup m = Lookup Callback m
 type NonceTimestampCheck m = OAuthParams -> m (Maybe OAuthError)
+-- | Action that generates a key and secret associated to the 'ConsumerKey' for the given 'TokenType'
 type TokenGenerator m = TokenType -> ConsumerKey -> m (Token, Secret)
 
 type SecretLookup k m = k -> m (Either OAuthError Secret)
