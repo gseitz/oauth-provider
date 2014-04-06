@@ -26,7 +26,7 @@ import           Control.Monad.Trans.Either (EitherT (..))
 import           Data.Attoparsec.Char8      (decimal, parseOnly)
 import           Data.ByteString            (ByteString)
 import           Data.Either.Combinators    (mapLeft)
-import           Data.Functor
+import           Data.Functor               ((<$>))
 import           Data.List                  (find, isPrefixOf)
 import           Data.Maybe                 (fromMaybe)
 import           Data.Monoid                ((<>))
@@ -47,13 +47,13 @@ import           Network.Wai.OAuth.Types
 
 withOAuth :: V.Key OAuthParams -> OAuthConfig IO -> [PathParts] -> Middleware
 withOAuth paramsKey cfg mapping app req =
-    case isProtected of
+    case needsProtection of
         Just _ -> do
-            (result, req') <- runOAuthM cfg req authenticated
-            either (return . errorAsResponse) (app . setParams req') result
+            (errorOrParams, req') <- runOAuthM cfg req authenticated
+            either (return . errorAsResponse) (app . setParams req') errorOrParams
         Nothing -> app req
   where
-    isProtected = find (`isPrefixOf` pathInfo req) mapping
+    needsProtection = find (`isPrefixOf` pathInfo req) mapping
     setParams r p = r { vault = V.insert paramsKey p (vault r) }
 
 parseRequest :: MonadIO m => OAuthM m OAuthState
