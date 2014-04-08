@@ -5,6 +5,10 @@
 {-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE ViewPatterns          #-}
 
+-- | This module provides the basic building blocks to build WAI applications with OAuth 1.0a cababilities.
+--
+-- "wai-oauth" implements the /One Legged/, /Two Legged/, and /Three Legged/ flows described
+-- in <https://github.com/Mashape/mashape-oauth/blob/master/FLOWS.md>.
 module Network.Wai.OAuth
     (
       withOAuth
@@ -45,25 +49,34 @@ import qualified Data.Vault.Lazy            as V
 import           Network.Wai.OAuth.Internal
 import           Network.Wai.OAuth.Types
 
--- | 'withOAuth' acts as a 'Middleware' and intercepts requests to check for the validity of the provided OAuth parameters.
--- The given 'PathParts' are used as prefixes for paths that are only accessible with a valid OAuth request.
+-- | 'withOAuth' acts as a 'Middleware' and intercepts requests to check for
+-- the validity of the provided OAuth parameters. The given 'PathParts' are
+-- used as prefixes for paths that are only accessible with a valid OAuth request.
 --
--- Notice that this just triggers "wai-oauth" to check whether the request itself is a syntactically valid OAuth request with valid and authenticated tokens.
--- The actual authorization needs to be done by the application itself. For this purpose, the extracted 'OAuthParams' can be accessed
--- with the given 'V.Key OAuthParams' from the requests 'V.Vault'.
+-- Notice that this just triggers "wai-oauth" to check whether the request
+-- itself is a syntactically valid OAuth request with valid and authenticated tokens.
+-- The actual authorization needs to be done by the application itself.
+-- For this purpose, the extracted 'OAuthParams' can be accessed with the given
+-- 'V.Key' 'OAuthParams' from the 'Request''s 'V.Vault'.
 withOAuth :: MonadIO m =>
-       V.Key OAuthParams -- ^ The 'V.Key' with which the 'OAuthParams' can be looked up in the request handling of an 'Application' further down the line.
-    -> OAuthConfig IO -- ^ An 'OAuthConfig' is best created with one of 'oneLeggedConfig', 'twoLeggedConfig', 'threeLeggedConfig'.
-    -> [PathParts] -- ^ These are the prefixes for request paths that need to be authenticated OAuth requests.
+    V.Key OAuthParams -- ^ The 'V.Key' with which the 'OAuthParams' can be
+                      -- looked up in the request handling of an
+                      -- 'Application' further down the line.
+    -> OAuthConfig IO -- ^ An 'OAuthConfig' is best created with one of the
+                      -- provided functions 'oneLeggedConfig',
+                      -- 'twoLeggedConfig', 'threeLeggedConfig'.
+    -> [PathParts]    -- ^ These are the prefixes for request paths that need to
+                      -- be authenticated OAuth requests.
     -> Middleware
-withOAuth paramsKey cfg mapping app req =
-    case needsProtection of
-        Just _ -> do
-            (errorOrParams, req') <- runOAuthM cfg req authenticated
-            either (return . errorAsResponse) (app . setParams req') errorOrParams
-        Nothing -> app req
+withOAuth paramsKey cfg prefixes app req =
+    if needsProtection
+        then do
+                (errorOrParams, req') <- runOAuthM cfg req authenticated
+                either (return . errorAsResponse) (app . setParams req') errorOrParams
+        else app req
   where
-    needsProtection = find (`isPrefixOf` pathInfo req) mapping
+    -- check if any of the supplied paths is a prefix of the current request path
+    needsProtection = any (`isPrefixOf` pathInfo req) prefixes
     setParams r p = r { vault = V.insert paramsKey p (vault r) }
 
 parseRequest :: MonadIO m => OAuthM m OAuthState
@@ -80,12 +93,14 @@ parseRequest = do
         consKey <- ConsumerKey <$> getE "oauth_consumer_key"
         timestamp <- maybe (Right Nothing) (fmap Just) (parseTS <$> getM "oauth_timestamp")
         return $ OAuthParams consKey (getOrEmpty "oauth_token") signMeth
-            (Callback <$> getM "oauth_callback") (Verifier <$> getM "oauth_verifier") signature (Nonce <$> getM "oauth_nonce") timestamp
-    return OAuthState { oauthRawParams = oauths, reqParams = rest, reqUrl = url, reqMethod = requestMethod request, oauthParams = oauth }
+            (Callback <$> getM "oauth_callback") (Verifier <$> getM "oauth_verifier")
+            signature (Nonce <$> getM "oauth_nonce") timestamp
+    return OAuthState { oauthRawParams = oauths, reqParams = rest, reqUrl = url
+                      , reqMethod = requestMethod request, oauthParams = oauth }
   where
     parseTS = mapLeft (const InvalidTimestamp) . parseOnly decimal
 
-
+-- | Checks that the request is signed by the final consumer-accesstoken secrets.
 authenticated :: MonadIO m => OAuthM m OAuthParams
 authenticated = do
     OAuthConfig {..} <- ask
