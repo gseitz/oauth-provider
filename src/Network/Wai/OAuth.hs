@@ -27,13 +27,14 @@ import           Data.Attoparsec.Char8      (decimal, parseOnly)
 import           Data.ByteString            (ByteString)
 import           Data.Either.Combinators    (mapLeft)
 import           Data.Functor               ((<$>))
-import           Data.List                  (find, isPrefixOf)
+import           Data.List                  (isPrefixOf)
 import           Data.Maybe                 (fromMaybe)
 import           Data.Monoid                ((<>))
 import           Network.HTTP.Types         (badRequest400, hContentType, ok200,
                                              unauthorized401)
-import           Network.Wai                (Middleware, Response, pathInfo,
-                                             requestMethod, responseLBS, vault)
+import           Network.Wai                (Middleware, Request, Response,
+                                             pathInfo, requestMethod,
+                                             responseLBS, vault)
 
 import qualified Data.ByteString            as B
 import qualified Data.ByteString.Lazy       as BL
