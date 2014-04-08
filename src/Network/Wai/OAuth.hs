@@ -17,7 +17,7 @@ module Network.Wai.OAuth
     ) where
 
 import           Control.Error.Util         (note)
-import           Control.Monad              (mfilter, unless)
+import           Control.Monad              (mfilter, unless, void)
 import           Control.Monad.IO.Class     (MonadIO)
 import           Control.Monad.Reader       (ask)
 import           Control.Monad.State        (get)
@@ -112,7 +112,10 @@ processTokenCreationRequest tokenLookup secretCreation customProcessing =
 
 
 oneLegged :: MonadIO m => OAuthM m ()
-oneLegged = processOAuthRequest emptyTokenLookup noProcessing
+oneLegged = do
+    params <- processOAuthRequest emptyTokenLookup
+    let token = opToken params
+    unless (B.null token) . oauthEither . Left $ InvalidToken token
 
 twoLeggedRequestTokenRequest :: MonadIO m => OAuthM m Response
 twoLeggedRequestTokenRequest = do
