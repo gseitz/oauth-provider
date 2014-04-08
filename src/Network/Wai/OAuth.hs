@@ -104,28 +104,30 @@ parseRequest = do
 authenticated :: MonadIO m => OAuthM m OAuthParams
 authenticated = do
     OAuthConfig {..} <- ask
-    processOAuthRequest (bsSecretLookup AccessTokenKey cfgAccessTokenSecretLookup ) return
+    processOAuthRequest (bsSecretLookup AccessTokenKey cfgAccessTokenSecretLookup)
 
 noProcessing :: Monad m => OAuthParams -> OAuthM m ()
 noProcessing = const (return ())
 
-processOAuthRequest :: MonadIO m => SecretLookup ByteString m -> (OAuthParams -> OAuthM m a) -> OAuthM m a
-processOAuthRequest tokenLookup customProcessing = do
+processOAuthRequest :: MonadIO m => SecretLookup ByteString m -> OAuthM m OAuthParams
+processOAuthRequest tokenLookup = do
     oauth <- parseRequest
     OAuthConfig {..} <- ask
     _ <- verifyOAuthSignature cfgConsumerSecretLookup tokenLookup oauth
     _ <- OAuthT . EitherT . lift . lift $ do
         maybeError <- cfgNonceTimestampCheck $ oauthParams oauth
         return $ maybe (Right ()) Left  maybeError
-    customProcessing (oauthParams oauth)
+    return $ oauthParams oauth
 
-processTokenCreationRequest :: MonadIO m => SecretLookup ByteString m -> (ConsumerKey -> m (Token, Secret)) -> (OAuthParams -> OAuthM m ()) -> OAuthM m [(ByteString, ByteString)]
-processTokenCreationRequest tokenLookup secretCreation customProcessing =
-    processOAuthRequest tokenLookup $ \params -> do
-        _ <- customProcessing params
-        (Token token, Secret secret) <- liftOAuthT $ secretCreation $ opConsumerKey params
-        return [("oauth_token", token), ("oauth_token_secret", secret)]
-
+processTokenCreationRequest :: MonadIO m =>
+    SecretLookup ByteString m
+    -> (ConsumerKey -> m (Token, Secret)) -> (OAuthParams -> OAuthM m ())
+    -> OAuthM m [(ByteString, ByteString)]
+processTokenCreationRequest tokenLookup secretCreation customProcessing = do
+    params <- processOAuthRequest tokenLookup
+    _      <- customProcessing params
+    (Token token, Secret secret) <- liftOAuthT $ secretCreation $ opConsumerKey params
+    return [("oauth_token", token), ("oauth_token_secret", secret)]
 
 oneLegged :: MonadIO m => OAuthM m ()
 oneLegged = do
