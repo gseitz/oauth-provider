@@ -130,10 +130,10 @@ processTokenCreationRequest tokenLookup secretCreation customProcessing = do
     return [("oauth_token", token), ("oauth_token_secret", secret)]
 
 oneLegged :: MonadIO m => OAuthM m ()
-oneLegged = do
-    params <- processOAuthRequest emptyTokenLookup
-    let token = opToken params
-    unless (B.null token) . oauthEither . Left $ InvalidToken token
+oneLegged = void $ processOAuthRequest (return . requireEmptyToken)
+  where
+    requireEmptyToken "" = Right ""
+    requireEmptyToken t = Left $ InvalidToken t
 
 twoLeggedRequestTokenRequest :: MonadIO m => OAuthM m Response
 twoLeggedRequestTokenRequest = do
