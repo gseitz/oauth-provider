@@ -121,15 +121,39 @@ data OAuthConfig m = OAuthConfig
     , cfgVerifierLookup            :: VerifierLookup m
     }
 
-oneLeggedConfig :: Monad m => SecretLookup ConsumerKey m -> NonceTimestampCheck m -> [SignatureMethod] -> OAuthConfig m
-oneLeggedConfig consumerLookup check methods = OAuthConfig consumerLookup emptyTokenLookup emptyTokenLookup emptyTokenGen check methods emptyCallbackLookup emptyVerifierLookup
+oneLeggedConfig :: Monad m =>
+    SecretLookup ConsumerKey m
+    -> NonceTimestampCheck m
+    -> [SignatureMethod]
+    -> OAuthConfig m
+oneLeggedConfig consumerLookup check methods =
+    OAuthConfig consumerLookup requireEmptyToken emptyTokenLookup
+                emptyTokenGen check methods emptyCallbackLookup emptyVerifierLookup
   where
     emptyTokenGen _ = const (return ("",""))
 
-twoLeggedConfig :: Monad m => ConsumerSecretLookup m -> AccessSecretLookup m -> RequestSecretLookup m -> TokenGenerator m -> NonceTimestampCheck m -> [SignatureMethod] -> OAuthConfig m
-twoLeggedConfig cons acc req tokenGen check methods = OAuthConfig cons acc req tokenGen check methods emptyCallbackLookup emptyVerifierLookup
+twoLeggedConfig :: Monad m =>
+    ConsumerSecretLookup m
+    -> AccessSecretLookup m
+    -> RequestSecretLookup m
+    -> TokenGenerator m
+    -> NonceTimestampCheck m
+    -> [SignatureMethod]
+    -> OAuthConfig m
+twoLeggedConfig cons acc req tokenGen check methods =
+    OAuthConfig cons acc req tokenGen check
+        methods emptyCallbackLookup emptyVerifierLookup
 
-threeLeggedConfig :: Monad m => ConsumerSecretLookup m -> AccessSecretLookup m -> RequestSecretLookup m -> TokenGenerator m -> NonceTimestampCheck m -> [SignatureMethod] -> CallbackLookup m -> VerifierLookup m -> OAuthConfig m
+threeLeggedConfig :: Monad m =>
+    ConsumerSecretLookup m
+    -> AccessSecretLookup m
+    -> RequestSecretLookup m
+    -> TokenGenerator m
+    -> NonceTimestampCheck m
+    -> [SignatureMethod]
+    -> CallbackLookup m
+    -> VerifierLookup m
+    -> OAuthConfig m
 threeLeggedConfig = OAuthConfig
 
 newtype Token = Token ByteString deriving (Show, Eq, IsString)
@@ -155,7 +179,8 @@ type ConsumerSecretLookup m = SecretLookup ConsumerKey m
 type AccessSecretLookup m = SecretLookup AccessTokenKey m
 type RequestSecretLookup m = SecretLookup RequestTokenKey m
 
-newtype OAuthT r s m a = OAuthT { runOAuthT :: EitherT OAuthError (StateT s (ReaderT r m)) a } deriving (Functor, Applicative, Monad, MonadIO)
+newtype OAuthT r s m a = OAuthT { runOAuthT :: EitherT OAuthError (StateT s (ReaderT r m)) a }
+    deriving (Functor, Applicative, Monad, MonadIO)
 type OAuthM m a = OAuthT (OAuthConfig m) Request m  a
 
 runOAuthM :: Monad m => OAuthConfig m -> Request -> OAuthM m a -> m (Either OAuthError a, Request)

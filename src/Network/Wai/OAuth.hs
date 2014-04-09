@@ -143,7 +143,8 @@ twoLeggedRequestTokenRequest = do
 twoLeggedAccessTokenRequest :: MonadIO m => OAuthM m Response
 twoLeggedAccessTokenRequest = do
     OAuthConfig {..} <- ask
-    twoLegged (bsSecretLookup RequestTokenKey cfgRequestTokenSecretLookup) (cfgTokenGenerator AccessToken)
+    twoLegged (bsSecretLookup RequestTokenKey cfgRequestTokenSecretLookup)
+              (cfgTokenGenerator AccessToken)
 
 twoLegged :: MonadIO m => SecretLookup ByteString m -> (ConsumerKey -> m (Token, Secret)) -> OAuthM m Response
 twoLegged tokenLookup secretCreation = do
@@ -165,7 +166,9 @@ threeLeggedAccessTokenRequest = do
                 Just ((==) storedVerifier -> True) -> oauthEither $ Right ()
                 Just wrongVerifier               -> oauthEither $ Left (InvalidVerifier wrongVerifier)
                 Nothing                          -> oauthEither $ Left (MissingParameter "oauth_verifier")
-    responseParams <- processTokenCreationRequest (bsSecretLookup RequestTokenKey cfgRequestTokenSecretLookup) (cfgTokenGenerator AccessToken) verifierCheck
+    responseParams <- processTokenCreationRequest
+        (bsSecretLookup RequestTokenKey cfgRequestTokenSecretLookup)
+        (cfgTokenGenerator AccessToken) verifierCheck
     return $ mkResponse200 responseParams
 
 
@@ -176,7 +179,11 @@ mkResponse200 params = responseLBS ok200 [(hContentType, "application/x-www-form
     paramString (a,b) = B.concat [a, "=", b]
 
 
-verifyOAuthSignature :: MonadIO m => SecretLookup ConsumerKey m -> SecretLookup ByteString m -> OAuthState -> OAuthM m ()
+verifyOAuthSignature :: MonadIO m =>
+    SecretLookup ConsumerKey m
+    -> SecretLookup ByteString m
+    -> OAuthState
+    -> OAuthM m ()
 verifyOAuthSignature consumerLookup tokenLookup  (OAuthState oauthRaw rest url method oauth) = do
     cons <- wrapped consumerLookup $ opConsumerKey oauth
     token <- wrapped tokenLookup $ opToken oauth
