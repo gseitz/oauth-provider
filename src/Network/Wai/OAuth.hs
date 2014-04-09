@@ -21,7 +21,7 @@ module Network.Wai.OAuth
     ) where
 
 import           Control.Error.Util         (note)
-import           Control.Monad              (mfilter, unless, void)
+import           Control.Monad              (mfilter, unless)
 import           Control.Monad.IO.Class     (MonadIO)
 import           Control.Monad.Reader       (ask)
 import           Control.Monad.State        (get)
@@ -129,11 +129,10 @@ processTokenCreationRequest tokenLookup secretCreation customProcessing = do
     (Token token, Secret secret) <- liftOAuthT $ secretCreation $ opConsumerKey params
     return [("oauth_token", token), ("oauth_token_secret", secret)]
 
-oneLegged :: MonadIO m => OAuthM m ()
-oneLegged = void $ processOAuthRequest (return . requireEmptyToken)
-  where
-    requireEmptyToken "" = Right ""
-    requireEmptyToken t = Left $ InvalidToken t
+
+-- | The one legged flow requires an empty /oauth_token/ parameter.
+oneLegged :: MonadIO m => OAuthM m OAuthParams
+oneLegged = authenticated
 
 twoLeggedRequestTokenRequest :: MonadIO m => OAuthM m Response
 twoLeggedRequestTokenRequest = do
