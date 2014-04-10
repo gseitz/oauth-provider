@@ -66,6 +66,7 @@ import           Data.Text                  (Text)
 import           Network.Wai                (Request)
 
 
+-- | Supported signature methods. /RSA-SHA1/ is currently not supported.
 data SignatureMethod = HMAC_SHA1 -- ^ <http://tools.ietf.org/html/rfc5849#section-3.4.2 RFC5849#3.4.2>
                      | Plaintext -- ^ <http://tools.ietf.org/html/rfc5849#section-3.4.4 RFC5849#3.4.4>
                      {-- RSA_SHA1  -- not supported at this point --}
@@ -74,8 +75,8 @@ data SignatureMethod = HMAC_SHA1 -- ^ <http://tools.ietf.org/html/rfc5849#sectio
 data TokenType = AccessToken | RequestToken deriving (Show, Eq)
 
 newtype ConsumerKey = ConsumerKey ByteString deriving (Eq, Show)
-newtype RequestTokenKey = RequestTokenKey { unRequestTokenKey :: ByteString } deriving (Eq, Show)
 newtype AccessTokenKey = AccessTokenKey { unAccessTokenKey :: ByteString } deriving (Eq, Show)
+newtype RequestTokenKey = RequestTokenKey { unRequestTokenKey :: ByteString } deriving (Eq, Show)
 
 newtype Verifier = Verifier ByteString deriving (Eq, Show)
 newtype Callback = Callback ByteString deriving (Eq, Show)
@@ -83,6 +84,7 @@ newtype Callback = Callback ByteString deriving (Eq, Show)
 newtype Nonce = Nonce ByteString deriving (Eq, Show)
 newtype Signature = Signature ByteString deriving (Eq, Show)
 
+-- | Captures all OAuth parameters in a request.
 data OAuthParams = OAuthParams {
     opConsumerKey     :: !ConsumerKey,
     opToken           :: !ByteString,
