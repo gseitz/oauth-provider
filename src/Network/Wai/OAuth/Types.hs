@@ -84,14 +84,14 @@ newtype Nonce = Nonce ByteString deriving (Eq, Show)
 newtype Signature = Signature ByteString deriving (Eq, Show)
 
 data OAuthParams = OAuthParams {
-    opConsumerKey     :: ConsumerKey,
-    opToken           :: ByteString,
-    opSignatureMethod :: SignatureMethod,
-    opCallback        :: Maybe Callback,
-    opVerifier        :: Maybe Verifier,
-    opSignature       :: Signature,
-    opNonce           :: Maybe Nonce,
-    opTimestamp       :: Maybe Timestamp
+    opConsumerKey     :: !ConsumerKey,
+    opToken           :: !ByteString,
+    opSignatureMethod :: !SignatureMethod,
+    opCallback        :: !(Maybe Callback),
+    opVerifier        :: !(Maybe Verifier),
+    opSignature       :: !Signature,
+    opNonce           :: !(Maybe Nonce),
+    opTimestamp       :: !(Maybe Timestamp)
     } deriving Show
 
 data OAuthError = DuplicateParameter Text
@@ -111,14 +111,14 @@ data OAuthError = DuplicateParameter Text
                 deriving (Show, Eq)
 
 data OAuthConfig m = OAuthConfig
-    { cfgConsumerSecretLookup      :: SecretLookup ConsumerKey m
-    , cfgAccessTokenSecretLookup   :: SecretLookup AccessTokenKey m
-    , cfgRequestTokenSecretLookup  :: SecretLookup RequestTokenKey m
-    , cfgTokenGenerator            :: TokenGenerator m
-    , cfgNonceTimestampCheck       :: NonceTimestampCheck m
-    , cfgSupportedSignatureMethods :: [SignatureMethod]
-    , cfgCallbackLookup            :: CallbackLookup m
-    , cfgVerifierLookup            :: VerifierLookup m
+    { cfgConsumerSecretLookup      :: !(SecretLookup ConsumerKey m)
+    , cfgAccessTokenSecretLookup   :: !(SecretLookup AccessTokenKey m)
+    , cfgRequestTokenSecretLookup  :: !(SecretLookup RequestTokenKey m)
+    , cfgTokenGenerator            :: !(TokenGenerator m)
+    , cfgNonceTimestampCheck       :: !(NonceTimestampCheck m)
+    , cfgSupportedSignatureMethods :: !([SignatureMethod])
+    , cfgCallbackLookup            :: !(CallbackLookup m)
+    , cfgVerifierLookup            :: !(VerifierLookup m)
     }
 
 oneLeggedConfig :: Monad m =>
