@@ -158,17 +158,18 @@ threeLeggedRequestTokenRequest = do
 
 threeLeggedAccessTokenRequest :: MonadIO m => OAuthM m Response
 threeLeggedAccessTokenRequest = do
-    OAuthConfig {..} <- ask
-    let verifierCheck params = do
-            storedVerifier <- lift $ cfgVerifierLookup (opConsumerKey params, opToken params)
-            case opVerifier params of
-                Just ((==) storedVerifier -> True) -> oauthEither $ Right ()
-                Just wrongVerifier               -> oauthEither $ Left (InvalidVerifier wrongVerifier)
-                Nothing                          -> oauthEither $ Left (MissingParameter "oauth_verifier")
+    cfg @ OAuthConfig {..} <- ask
     responseParams <- processTokenCreationRequest
         (bsSecretLookup RequestTokenKey cfgRequestTokenSecretLookup)
-        (cfgTokenGenerator AccessToken) verifierCheck
+        (cfgTokenGenerator AccessToken) (verifierCheck cfg)
     return $ mkResponse200 responseParams
+  where
+    verifierCheck OAuthConfig {..} params = do
+        storedVerifier <- lift $ cfgVerifierLookup (opConsumerKey params, opToken params)
+        case opVerifier params of
+            Just ((==) storedVerifier -> True) -> oauthEither $ Right ()
+            Just wrongVerifier               -> oauthEither $ Left (InvalidVerifier wrongVerifier)
+            Nothing                          -> oauthEither $ Left (MissingParameter "oauth_verifier")
 
 
 mkResponse200 :: [(ByteString, ByteString)] -> Response
