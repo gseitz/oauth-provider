@@ -48,7 +48,7 @@ module Network.Wai.OAuth.Types
     -- * Monad
     , OAuthT(..)
     , OAuthM
-    , runOAuthM
+    , runOAuth
     ) where
 
 import           Control.Applicative        (Applicative)
@@ -184,8 +184,8 @@ newtype OAuthT r s m a = OAuthT { runOAuthT :: EitherT OAuthError (StateT s (Rea
     deriving (Functor, Applicative, Monad, MonadIO)
 type OAuthM m a = OAuthT (OAuthConfig m) Request m  a
 
-runOAuthM :: Monad m => OAuthConfig m -> Request -> OAuthM m a -> m (Either OAuthError a, Request)
-runOAuthM config req = (`runReaderT` config) . (`runStateT` req) . runEitherT . runOAuthT
+runOAuth :: Monad m => r -> s -> OAuthT r s m a -> m (Either OAuthError a, s)
+runOAuth config req = (`runReaderT` config) . (`runStateT` req) . runEitherT . runOAuthT
 
 instance Monad m => MonadState s (OAuthT r s m) where
     get = OAuthT get

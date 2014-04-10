@@ -71,7 +71,7 @@ withOAuth :: MonadIO m =>
 withOAuth paramsKey cfg prefixes app req =
     if needsProtection
         then do
-                (errorOrParams, req') <- runOAuthM cfg req authenticated
+                (errorOrParams, req') <- runOAuth cfg req authenticated
                 either (return . errorAsResponse) (app . setParams req') errorOrParams
         else app req
   where
