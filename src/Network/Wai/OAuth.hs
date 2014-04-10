@@ -79,8 +79,8 @@ withOAuth paramsKey cfg prefixes app req =
     needsProtection = any (`isPrefixOf` pathInfo req) prefixes
     setParams r p = r { vault = V.insert paramsKey p (vault r) }
 
-parseRequest :: MonadIO m => OAuthM m OAuthState
-parseRequest = do
+validateRequest :: MonadIO m => OAuthM m OAuthState
+validateRequest = do
     request <- get
     (oauths, rest) <- splitOAuthParams
     url <- oauthEither $ generateNormUrl request
@@ -111,7 +111,7 @@ noProcessing = const (return ())
 
 processOAuthRequest :: MonadIO m => SecretLookup ByteString m -> OAuthM m OAuthParams
 processOAuthRequest tokenLookup = do
-    oauth <- parseRequest
+    oauth <- validateRequest
     OAuthConfig {..} <- ask
     _ <- verifyOAuthSignature cfgConsumerSecretLookup tokenLookup oauth
     _ <- OAuthT . EitherT . lift . lift $ do
