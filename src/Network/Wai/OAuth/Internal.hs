@@ -8,7 +8,7 @@ import           Control.Arrow              (second)
 import           Control.Error.Util         (note)
 import           Control.Monad              (mfilter)
 import           Control.Monad.State        (get, modify)
-import           Control.Monad.Trans        (MonadIO, lift, liftIO)
+import           Control.Monad.Trans        (MonadIO, liftIO)
 import           Control.Monad.Trans.Either (hoistEither)
 import           Data.Attoparsec.Char8      hiding (isDigit)
 import           Data.ByteString            (ByteString)
@@ -147,9 +147,6 @@ formBodyParameters = do
 
 oauthEither :: Monad m => Either OAuthError b -> OAuthM m b
 oauthEither = OAuthT . hoistEither
-
-liftOAuthT :: Monad m => m a -> OAuthT r s m a
-liftOAuthT = OAuthT . lift .lift . lift
 
 extractSignatureMethod :: ByteString -> Either OAuthError SignatureMethod
 extractSignatureMethod "HMAC-SHA1" = Right HMAC_SHA1

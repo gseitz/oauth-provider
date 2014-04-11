@@ -152,7 +152,7 @@ processTokenCreationRequest :: MonadIO m =>
 processTokenCreationRequest tokenLookup secretCreation customProcessing = do
     params <- processOAuthRequest tokenLookup
     _      <- customProcessing params
-    (Token token, Secret secret) <- liftOAuthT $ secretCreation $ opConsumerKey params
+    (Token token, Secret secret) <- lift $ secretCreation $ opConsumerKey params
     return [("oauth_token", token), ("oauth_token_secret", secret)]
 
 validateRequest :: MonadIO m => OAuthM m OAuthState
