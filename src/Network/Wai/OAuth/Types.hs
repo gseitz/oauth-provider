@@ -39,9 +39,8 @@ module Network.Wai.OAuth.Types
     , ConsumerSecretLookup
     , AccessSecretLookup
     , RequestSecretLookup
-    , Lookup
     , VerifierLookup
-    , CallbackLookup
+    , CallbackStore
     , NonceTimestampCheck
     , TokenGenerator
 
@@ -122,7 +121,7 @@ data OAuthConfig m = OAuthConfig
     , cfgTokenGenerator            :: !(TokenGenerator m)
     , cfgNonceTimestampCheck       :: !(NonceTimestampCheck m)
     , cfgSupportedSignatureMethods :: !([SignatureMethod])
-    , cfgCallbackLookup            :: !(CallbackLookup m)
+    , cfgCallbackStore             :: !(CallbackStore m)
     , cfgVerifierLookup            :: !(VerifierLookup m)
     }
 
@@ -138,7 +137,7 @@ oneLeggedConfig :: Monad m =>
 oneLeggedConfig consumerLookup check methods =
     OAuthConfig consumerLookup (requireEmptyTokenLookup . unAccessTokenKey)
                 (requireEmptyTokenLookup . unRequestTokenKey)
-                emptyTokenGen check methods emptyCallbackLookup emptyVerifierLookup
+                emptyTokenGen check methods noopCallbackStore emptyVerifierLookup
   where
     emptyTokenGen _ = const (return ("",""))
 
@@ -159,7 +158,7 @@ twoLeggedConfig :: Monad m =>
     -> OAuthConfig m
 twoLeggedConfig cons acc req tokenGen check methods =
     OAuthConfig cons acc req tokenGen check
-        methods emptyCallbackLookup emptyVerifierLookup
+        methods noopCallbackStore emptyVerifierLookup
 
 -- | Constructs an 'OAuthConfig' value for the three legged flow.
 threeLeggedConfig :: Monad m =>
@@ -175,7 +174,7 @@ threeLeggedConfig :: Monad m =>
                              -- 'ConsumerKey', 'Token', 'Nonce', and
                              -- 'Timestamp' hasn't been used before.
     -> [SignatureMethod] -- ^ The supported 'SignatureMethod's.
-    -> CallbackLookup m -- ^ Monadic value to look up a previously stored
+    -> CallbackStore m -- ^ Monadic value to look up a previously stored
                         -- 'Callback' URL
     -> VerifierLookup m -- ^ Monadic value to lookup a previously stored
                         -- 'Verifier' token.
@@ -193,9 +192,8 @@ type TokenSecret = Secret
 type Secrets = (ConsumerSecret, TokenSecret)
 type Timestamp = Int64
 type PathParts = [Text]
-type Lookup t m  = (ConsumerKey, Token) -> m t
-type VerifierLookup m = Lookup Verifier m
-type CallbackLookup m = Lookup Callback m
+type VerifierLookup m  = (ConsumerKey, Token) -> m Verifier
+type CallbackStore m = (ConsumerKey, Token) -> Callback -> m ()
 type NonceTimestampCheck m = OAuthParams -> m (Maybe OAuthError)
 -- | Action that generates a key and secret associated to the 'ConsumerKey' for the given 'TokenType'
 type TokenGenerator m = TokenType -> ConsumerKey -> m (Token, Secret)
@@ -227,8 +225,8 @@ instance MonadTrans (OAuthT r s) where
 emptyVerifierLookup :: Monad m => VerifierLookup m
 emptyVerifierLookup = const . return . Verifier $ ""
 
-emptyCallbackLookup :: Monad m => CallbackLookup m
-emptyCallbackLookup = const . return . Callback $ ""
+noopCallbackStore :: Monad m => CallbackStore m
+noopCallbackStore = const . const $ return ()
 
 emptyTokenLookup :: Monad m => SecretLookup t m
 emptyTokenLookup = const (return $ Right "")

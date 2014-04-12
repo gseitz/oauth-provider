@@ -117,8 +117,13 @@ twoLegged tokenLookup secretCreation = do
 threeLeggedRequestTokenRequest :: MonadIO m => OAuthM m Response
 threeLeggedRequestTokenRequest = do
     OAuthConfig {..} <- ask
-    responseParams <- processTokenCreationRequest emptyTokenLookup (cfgTokenGenerator RequestToken) noProcessing
+    responseParams <- processTokenCreationRequest emptyTokenLookup
+        (cfgTokenGenerator RequestToken)
+        (storeCallback cfgCallbackStore)
     return $ mkResponse200 $ ("oauth_callback_confirmed", "true") : responseParams
+  where
+    storeCallback cbStore OAuthParams {..} = maybe missingCallback (lift . cbStore (opConsumerKey, opToken)) opCallback
+    missingCallback = oauthEither . Left $ MissingParameter "oauth_callback"
 
 -- | Handles the third step of the three legged OAuth flow. The request is
 -- expected to provide the 'Verifier' that was associated with the 'Request's
