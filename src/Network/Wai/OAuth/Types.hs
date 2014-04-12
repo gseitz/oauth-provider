@@ -45,7 +45,7 @@ module Network.Wai.OAuth.Types
     , TokenGenerator
 
     -- * Monad
-    , OAuthT(..)
+    , OAuthT(OAuthT)
     , OAuthM
     , runOAuth
     ) where
