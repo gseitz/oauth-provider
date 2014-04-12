@@ -84,15 +84,15 @@ newtype Nonce = Nonce ByteString deriving (Eq, Show)
 newtype Signature = Signature ByteString deriving (Eq, Show)
 
 -- | Captures all OAuth parameters in a request.
-data OAuthParams = OAuthParams {
-    opConsumerKey     :: !ConsumerKey,
-    opToken           :: !Token,
-    opSignatureMethod :: !SignatureMethod,
-    opCallback        :: !(Maybe Callback),
-    opVerifier        :: !(Maybe Verifier),
-    opSignature       :: !Signature,
-    opNonce           :: !(Maybe Nonce),
-    opTimestamp       :: !(Maybe Timestamp)
+data OAuthParams = OAuthParams
+    { opConsumerKey     :: !ConsumerKey
+    , opToken           :: !Token
+    , opSignatureMethod :: !SignatureMethod
+    , opCallback        :: !(Maybe Callback)
+    , opVerifier        :: !(Maybe Verifier)
+    , opSignature       :: !Signature
+    , opNonce           :: !(Maybe Nonce)
+    , opTimestamp       :: !(Maybe Timestamp)
     } deriving Show
 
 -- | 'OAuthError' represents the various errors that can occur when
