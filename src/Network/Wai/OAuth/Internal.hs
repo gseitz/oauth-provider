@@ -39,8 +39,8 @@ import qualified Data.Text.Encoding         as E
 
 import           Network.Wai.OAuth.Types
 
-bsSecretLookup :: Monad m => (ByteString -> t) -> SecretLookup t m -> SecretLookup ByteString m
-bsSecretLookup f l = l . f
+bsSecretLookup :: Monad m => (ByteString -> t) -> SecretLookup t m -> SecretLookup Token m
+bsSecretLookup f l = l . f . unToken
 
 data OAuthState = OAuthState
     { oauthRawParams :: SimpleQueryText

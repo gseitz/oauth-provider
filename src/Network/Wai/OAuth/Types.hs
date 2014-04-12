@@ -87,7 +87,7 @@ newtype Signature = Signature ByteString deriving (Eq, Show)
 -- | Captures all OAuth parameters in a request.
 data OAuthParams = OAuthParams {
     opConsumerKey     :: !ConsumerKey,
-    opToken           :: !ByteString,
+    opToken           :: !Token,
     opSignatureMethod :: !SignatureMethod,
     opCallback        :: !(Maybe Callback),
     opVerifier        :: !(Maybe Verifier),
@@ -159,7 +159,7 @@ threeLeggedConfig :: Monad m =>
     -> OAuthConfig m
 threeLeggedConfig = OAuthConfig
 
-newtype Token = Token ByteString deriving (Show, Eq, IsString)
+newtype Token = Token { unToken :: ByteString } deriving (Show, Eq, IsString)
 newtype Secret = Secret ByteString deriving (Show, Eq, IsString)
 
 type SimpleQueryText = [(Text, Text)]
@@ -170,7 +170,7 @@ type TokenSecret = Secret
 type Secrets = (ConsumerSecret, TokenSecret)
 type Timestamp = Int64
 type PathParts = [Text]
-type Lookup t m  = (ConsumerKey, ByteString) -> m t
+type Lookup t m  = (ConsumerKey, Token) -> m t
 type VerifierLookup m = Lookup Verifier m
 type CallbackLookup m = Lookup Callback m
 type NonceTimestampCheck m = OAuthParams -> m (Maybe OAuthError)

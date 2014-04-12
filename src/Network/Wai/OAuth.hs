@@ -106,7 +106,7 @@ twoLeggedAccessTokenRequest = do
     twoLegged (bsSecretLookup RequestTokenKey cfgRequestTokenSecretLookup)
               (cfgTokenGenerator AccessToken)
 
-twoLegged :: MonadIO m => SecretLookup ByteString m -> (ConsumerKey -> m (Token, Secret)) -> OAuthM m Response
+twoLegged :: MonadIO m => SecretLookup Token m -> (ConsumerKey -> m (Token, Secret)) -> OAuthM m Response
 twoLegged tokenLookup secretCreation = do
     responseString <- processTokenCreationRequest tokenLookup secretCreation noProcessing
     return $ mkResponse200 responseString
@@ -135,7 +135,7 @@ threeLeggedAccessTokenRequest = do
 noProcessing :: Monad m => OAuthParams -> OAuthM m ()
 noProcessing = const (return ())
 
-processOAuthRequest :: MonadIO m => SecretLookup ByteString m -> OAuthM m OAuthParams
+processOAuthRequest :: MonadIO m => SecretLookup Token m -> OAuthM m OAuthParams
 processOAuthRequest tokenLookup = do
     oauth <- validateRequest
     OAuthConfig {..} <- ask
@@ -146,7 +146,7 @@ processOAuthRequest tokenLookup = do
     return $ oauthParams oauth
 
 processTokenCreationRequest :: MonadIO m =>
-    SecretLookup ByteString m
+    SecretLookup Token m
     -> (ConsumerKey -> m (Token, Secret)) -> (OAuthParams -> OAuthM m ())
     -> OAuthM m [(ByteString, ByteString)]
 processTokenCreationRequest tokenLookup secretCreation customProcessing = do
@@ -168,7 +168,7 @@ validateRequest = do
         signature <- Signature <$> getE "oauth_signature"
         consKey <- ConsumerKey <$> getE "oauth_consumer_key"
         timestamp <- maybe (Right Nothing) (fmap Just) (parseTS <$> getM "oauth_timestamp")
-        return $ OAuthParams consKey (getOrEmpty "oauth_token") signMeth
+        return $ OAuthParams consKey (Token $ getOrEmpty "oauth_token") signMeth
             (Callback <$> getM "oauth_callback") (Verifier <$> getM "oauth_verifier")
             signature (Nonce <$> getM "oauth_nonce") timestamp
     return OAuthState { oauthRawParams = oauths, reqParams = rest, reqUrl = url
@@ -187,7 +187,7 @@ mkResponse200 params = responseLBS ok200 [(hContentType, "application/x-www-form
 
 verifyOAuthSignature :: MonadIO m =>
     SecretLookup ConsumerKey m
-    -> SecretLookup ByteString m
+    -> SecretLookup Token m
     -> OAuthState
     -> OAuthM m ()
 verifyOAuthSignature consumerLookup tokenLookup  (OAuthState oauthRaw rest url method oauth) = do
