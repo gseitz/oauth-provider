@@ -123,10 +123,14 @@ data OAuthConfig m = OAuthConfig
     , cfgVerifierLookup            :: !(VerifierLookup m)
     }
 
+-- | Constructs an 'OAuthConfig' value for the one legged flow.
 oneLeggedConfig :: Monad m =>
-    SecretLookup ConsumerKey m
-    -> NonceTimestampCheck m
-    -> [SignatureMethod]
+    SecretLookup ConsumerKey m -- ^ Monadic value to lookup the secret associated
+                               -- with the given 'ConsumerKey'.
+    -> NonceTimestampCheck m -- ^ A check to verify that the combination of
+                             -- 'ConsumerKey', 'Token', 'Nonce', and
+                             -- 'Timestamp' hasn't been used before.
+    -> [SignatureMethod] -- ^ The supported 'SignatureMethod's.
     -> OAuthConfig m
 oneLeggedConfig consumerLookup check methods =
     OAuthConfig consumerLookup (requireEmptyTokenLookup . unAccessTokenKey)
@@ -135,27 +139,43 @@ oneLeggedConfig consumerLookup check methods =
   where
     emptyTokenGen _ = const (return ("",""))
 
+-- | Constructs an 'OAuthConfig' value for the two legged flow.
 twoLeggedConfig :: Monad m =>
-    ConsumerSecretLookup m
-    -> AccessSecretLookup m
-    -> RequestSecretLookup m
-    -> TokenGenerator m
-    -> NonceTimestampCheck m
-    -> [SignatureMethod]
+    ConsumerSecretLookup m -- ^ Monadic value to lookup the secret associated
+                           -- with the given 'ConsumerKey'.
+    -> AccessSecretLookup m -- ^ Monadic value to lookup the secret associated
+                            -- with the given 'AccessTokenKey'.
+    -> RequestSecretLookup m -- ^ Monadic value to lookup the secret associated
+                             -- with the given 'RequestTokenKey'.
+    -> TokenGenerator m -- ^ Monadic value for generating a new 'Token'/'Secret'
+                        -- for the given 'TokenType' and 'ConsumerKey'.
+    -> NonceTimestampCheck m -- ^ A check to verify that the combination of
+                             -- 'ConsumerKey', 'Token', 'Nonce', and
+                             -- 'Timestamp' hasn't been used before.
+    -> [SignatureMethod] -- ^ The supported 'SignatureMethod's.
     -> OAuthConfig m
 twoLeggedConfig cons acc req tokenGen check methods =
     OAuthConfig cons acc req tokenGen check
         methods emptyCallbackLookup emptyVerifierLookup
 
+-- | Constructs an 'OAuthConfig' value for the three legged flow.
 threeLeggedConfig :: Monad m =>
-    ConsumerSecretLookup m
-    -> AccessSecretLookup m
-    -> RequestSecretLookup m
-    -> TokenGenerator m
-    -> NonceTimestampCheck m
-    -> [SignatureMethod]
-    -> CallbackLookup m
-    -> VerifierLookup m
+    ConsumerSecretLookup m -- ^ Monadic value to lookup the secret associated
+                           -- with the given 'ConsumerKey'.
+    -> AccessSecretLookup m -- ^ Monadic value to lookup the secret associated
+                            -- with the given 'AccessTokenKey'.
+    -> RequestSecretLookup m -- ^ Monadic value to lookup the secret associated
+                             -- with the given 'RequestTokenKey'.
+    -> TokenGenerator m -- ^ Monadic value for generating a new 'Token'/'Secret'
+                        -- for the given 'TokenType' and 'ConsumerKey'.
+    -> NonceTimestampCheck m -- ^ A check to verify that the combination of
+                             -- 'ConsumerKey', 'Token', 'Nonce', and
+                             -- 'Timestamp' hasn't been used before.
+    -> [SignatureMethod] -- ^ The supported 'SignatureMethod's.
+    -> CallbackLookup m -- ^ Monadic value to look up a previously stored
+                        -- 'Callback' URL
+    -> VerifierLookup m -- ^ Monadic value to lookup a previously stored
+                        -- 'Verifier' token.
     -> OAuthConfig m
 threeLeggedConfig = OAuthConfig
 
