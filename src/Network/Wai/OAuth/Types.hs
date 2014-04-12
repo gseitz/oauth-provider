@@ -112,6 +112,9 @@ data OAuthError = DuplicateParameter Text
                 | InvalidVerifier Verifier
                 deriving (Show, Eq)
 
+-- | 'OAuthConfig' captures everything that is need for the processing the
+-- different kind of requests as part of the one legged, two legged, or
+-- three legged flows.
 data OAuthConfig m = OAuthConfig
     { cfgConsumerSecretLookup      :: !(SecretLookup ConsumerKey m)
     , cfgAccessTokenSecretLookup   :: !(SecretLookup AccessTokenKey m)
