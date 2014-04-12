@@ -95,6 +95,8 @@ data OAuthParams = OAuthParams {
     opTimestamp       :: !(Maybe Timestamp)
     } deriving Show
 
+-- | 'OAuthError' represents the various errors that can occur when
+-- processing OAuth requests.
 data OAuthError = DuplicateParameter Text
                 | UnsupportedParameter Text
                 | MissingParameter Text
@@ -115,13 +117,25 @@ data OAuthError = DuplicateParameter Text
 -- different kind of requests as part of the one legged, two legged, or
 -- three legged flows.
 data OAuthConfig m = OAuthConfig
-    { cfgConsumerSecretLookup      :: !(SecretLookup ConsumerKey m)
+    { -- | A function to lookup the 'Secret' for the given 'ConsumerKey'.
+      cfgConsumerSecretLookup      :: !(SecretLookup ConsumerKey m)
+      -- | A function to lookup the 'Secret' for the given 'AccessTokenKey'.
     , cfgAccessTokenSecretLookup   :: !(SecretLookup AccessTokenKey m)
+      -- | A function to lookup the 'Secret' for the give 'RequestTokenKey'.
     , cfgRequestTokenSecretLookup  :: !(SecretLookup RequestTokenKey m)
+      -- | A function for generating a new token/secret pair of the given 'TokenType'.
+      -- This function is also responsible to store the token/secret pair for later retrieval.
     , cfgTokenGenerator            :: !(TokenGenerator m)
+      -- | A function that checks the uniqueness of the 'opNonce', 'opTimestamp',
+      -- 'opConsumerKey', and 'opToken'.
     , cfgNonceTimestampCheck       :: !(NonceTimestampCheck m)
+      -- | A list of 'SignatureMethod's the hosting application wants to provide.
     , cfgSupportedSignatureMethods :: !([SignatureMethod])
+      -- | A function that stores the 'Callback' URL associated with the given
+      -- 'ConsumerKey' and 'Token'.
     , cfgCallbackStore             :: !(CallbackStore m)
+      -- | A function for looking up a previously stored 'Verifier' associated
+      -- with the given 'ConsumerKey' and 'Token'.
     , cfgVerifierLookup            :: !(VerifierLookup m)
     }
 
