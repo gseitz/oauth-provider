@@ -157,13 +157,11 @@ extractSignatureMethod method      = Left $ UnsupportedSignatureMethod method
 
 parseAuthHeader :: Parser SimpleQueryText
 parseAuthHeader = do
-    string "OAuth"
-    skipSpace
+    _ <- string "OAuth"
+    _ <- skipSpace
     sepBy (mfilter (T.isPrefixOf "oauth_" . fst) lineParser) separator
   where
-    separator = do
-        char ','
-        skipSpace
+    separator = char ',' >> skipSpace
 
 lineParser :: Parser (Text, Text)
 lineParser = do
