@@ -214,27 +214,4 @@ verifyOAuthSignature consumerLookup tokenLookup  (OAuthState oauthRaw rest url m
     wrapped f = OAuthT . EitherT . lift . lift . f
 
 
-errorAsResponse :: OAuthError -> Response
-errorAsResponse err = case err of
-    -- 400 - Bad Request
-    UnsupportedParameter _ -> r400
-    UnsupportedSignatureMethod _ -> r400
-    MissingParameter _ -> r400
-    MissingHostHeader -> r400
-    DuplicateParameter _ -> r400
-    MultipleOAuthParamLocations -> r400
-    InvalidTimestamp -> r400
-    -- 401 - Unauthorized
-    InvalidToken _ -> r401
-    UsedNonce -> r401
-    InvalidConsumerKey _ -> r401
-    InvalidSignature _ -> r401
-    InvalidVerifier _ -> r401
-    ExpiredRequest -> r401
-    ExpiredToken _ -> r401
-  where
-    r400 = resp badRequest400
-    r401 = resp unauthorized401
-    resp status = responseLBS status [] $ BL.fromStrict $ E.encodeUtf8 $ T.pack $ show err
-
 
