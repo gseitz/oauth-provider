@@ -6,11 +6,9 @@ import           Control.Arrow            (second)
 import           Control.Concurrent       (forkIO)
 import           Control.Concurrent.Chan
 import           Control.Monad            (join)
-import           Data.Functor             ((<$>))
 import           Data.List                (intercalate)
-import           Data.Maybe               (fromMaybe, isJust)
+import           Data.Maybe               (fromMaybe)
 import           Data.Monoid              ((<>))
-import Network
 import           Network.HTTP.Types       (ok200, parseQueryText)
 import           Network.Wai.Handler.Warp (run)
 
@@ -20,15 +18,14 @@ import           Network.Wai.OAuth.Types
 import qualified Data.ByteString          as B
 import qualified Data.ByteString.Lazy     as BL
 import qualified Data.Text                as T
-import qualified Data.Text.Encoding       as E
 import qualified Data.Vault.Lazy          as V
 import qualified Network.HTTP.Conduit     as HC
 import qualified Network.Wai              as W
 
 main :: IO ()
 main = do
-    server <- forkIO warpApp
-    client <- forkIO clientApp
+    _  <- forkIO warpApp
+    _ <- forkIO clientApp
     _ <- readLn :: IO Int
     return ()
 
@@ -41,7 +38,7 @@ warpApp = do
     run 3000 $ withOAuth paramsKey config [["protected"], ["users", "VIP"]] $ warpy paramsKey config chan
 
 warpy :: V.Key OAuthParams -> OAuthConfig IO -> Chan () -> W.Application
-warpy key config chan req = do
+warpy key config _ req = do
     (eith, _) <- case W.pathInfo req of
         ["request"] -> runOAuth config req twoLeggedRequestTokenRequest
         ["access"] -> runOAuth config req twoLeggedAccessTokenRequest
@@ -50,9 +47,6 @@ warpy key config chan req = do
   where
     isProtected = maybe "unprotected" (const "protected") $ V.lookup key (W.vault req)
     echo = join $ lookup "echo" $ W.queryString req
-        --config = oneLeggedConfig consumerLookup timestampCheck [HMAC_SHA1]
---     errorResponse <- liftIO $ runOAuthM config req $ threeLeggedAccessTokenRequest
---     return $ either (errorAsResponse) (id) errorResponse
 
 tokenGenerator :: Monad m => TokenGenerator m
 tokenGenerator RequestToken _ = return ("request_key", "request_secret")
@@ -67,17 +61,17 @@ mkResponse = W.responseLBS ok200 [] . BL.fromStrict
 consumerLookup :: Monad m => SecretLookup ConsumerKey m
 consumerLookup (ConsumerKey key) = return $ case key of
     "consumer_key" -> Right "consumer_secret"
-    key -> Left $ InvalidConsumerKey key
+    k -> Left $ InvalidConsumerKey k
 
 accessLookup :: Monad m => SecretLookup AccessTokenKey m
 accessLookup (AccessTokenKey key) = return $ case key of
     "access_key" -> Right "access_secret"
-    key -> Left $ InvalidToken key
+    k -> Left $ InvalidToken k
 
 requestLookup :: Monad m => SecretLookup RequestTokenKey m
 requestLookup (RequestTokenKey key) = return $ case key of
     "request_key" -> Right "request_secret"
-    key -> Left $ InvalidToken key
+    k -> Left $ InvalidToken k
 
 timestampCheck :: Monad m => NonceTimestampCheck m
 timestampCheck _ = return Nothing
@@ -110,19 +104,19 @@ acquireCredentials path tok sec = do
 
 executeRequest:: String -> T.Text -> T.Text -> IO BL.ByteString
 executeRequest path token secret = do
-    let url = buildURL path $ [
+    let url = buildURL path [
             ("oauth_consumer_key", "consumer_key"),
             ("oauth_token", T.unpack token),
             ("oauth_signature_method", "PLAINTEXT"),
             ("oauth_signature", "consumer_secret%26" ++ T.unpack secret)
             ]
-    request' <- HC.parseUrl $ url
+    request' <- HC.parseUrl url
     let request = request' { HC.checkStatus = \_ _ _ -> Nothing }
     resp <- HC.withManager $ HC.httpLbs request
     return $ HC.responseBody resp
 
 buildURL :: String -> [(String, String)] -> String
-buildURL path params = "http://localhost:3000" ++ path ++ "?" ++ (intercalate "&" $ map (\(k,v) -> k ++ "=" ++ v) params)
+buildURL path params = "http://localhost:3000" ++ path ++ "?" ++ intercalate "&" (map (\(k,v) -> k ++ "=" ++ v) params)
 
 
 query :: B.ByteString -> [(T.Text, T.Text)]
