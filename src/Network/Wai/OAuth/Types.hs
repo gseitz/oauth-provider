@@ -63,7 +63,12 @@ import           Data.ByteString            (ByteString)
 import           Data.Int                   (Int64)
 import           Data.String                (IsString)
 import           Data.Text                  (Text)
-import           Network.Wai                (Request)
+import           Network.HTTP.Types         (badRequest400, unauthorized401)
+import           Network.Wai                (Request, Response, responseLBS)
+
+import qualified Data.ByteString.Lazy       as BL
+import qualified Data.Text                  as T
+import qualified Data.Text.Encoding         as E
 
 
 -- | Supported signature methods. /RSA-SHA1/ is currently not supported.

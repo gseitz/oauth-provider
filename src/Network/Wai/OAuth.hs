@@ -34,15 +34,13 @@ import           Data.Functor               ((<$>))
 import           Data.List                  (isPrefixOf)
 import           Data.Maybe                 (fromMaybe)
 import           Data.Monoid                ((<>))
-import           Network.HTTP.Types         (badRequest400, hContentType, ok200,
-                                             unauthorized401)
+import           Network.HTTP.Types         (hContentType, ok200)
 import           Network.Wai                (Middleware, Request, Response,
                                              pathInfo, requestMethod,
                                              responseLBS, vault)
 
 import qualified Data.ByteString            as B
 import qualified Data.ByteString.Lazy       as BL
-import qualified Data.Text                  as T
 import qualified Data.Text.Encoding         as E
 import qualified Data.Vault.Lazy            as V
 
@@ -58,7 +56,7 @@ import           Network.Wai.OAuth.Types
 -- The actual authorization needs to be done by the application itself.
 -- For this purpose, the extracted 'OAuthParams' can be accessed with the given
 -- 'V.Key' 'OAuthParams' from the 'Request''s 'V.Vault'.
-withOAuth :: MonadIO m =>
+withOAuth ::
     V.Key OAuthParams -- ^ The 'V.Key' with which the 'OAuthParams' can be
                       -- looked up in the request handling of an
                       -- 'Application' further down the line.
@@ -171,6 +169,7 @@ validateRequest = do
     request <- get
     (oauths, rest) <- splitOAuthParams
     url <- oauthEither $ generateNormUrl request
+
     let getM name = mfilter ( /= "") $ E.encodeUtf8 <$> lookup name oauths
         getE name = note (MissingParameter name) $ getM name
         getOrEmpty name = fromMaybe "" $ getM name
@@ -179,9 +178,15 @@ validateRequest = do
         signature <- Signature <$> getE "oauth_signature"
         consKey <- ConsumerKey <$> getE "oauth_consumer_key"
         timestamp <- maybe (Right Nothing) (fmap Just) (parseTS <$> getM "oauth_timestamp")
-        return $ OAuthParams consKey (Token $ getOrEmpty "oauth_token") signMeth
-            (Callback <$> getM "oauth_callback") (Verifier <$> getM "oauth_verifier")
-            signature (Nonce <$> getM "oauth_nonce") timestamp
+        return $ OAuthParams
+            consKey
+            (Token $ getOrEmpty "oauth_token")
+            signMeth
+            (Callback <$> getM "oauth_callback")
+            (Verifier <$> getM "oauth_verifier")
+            signature
+            (Nonce <$> getM "oauth_nonce")
+            timestamp
     return OAuthState { oauthRawParams = oauths, reqParams = rest, reqUrl = url
                       , reqMethod = requestMethod request, oauthParams = oauth }
   where
