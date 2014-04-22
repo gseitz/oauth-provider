@@ -81,11 +81,11 @@ data SignatureMethod = HMAC_SHA1 -- ^ <http://tools.ietf.org/html/rfc5849#sectio
 data TokenType = AccessToken | RequestToken deriving (Show, Eq)
 
 newtype ConsumerKey = ConsumerKey ByteString deriving (Eq, Show)
-newtype AccessTokenKey = AccessTokenKey { unAccessTokenKey :: ByteString } deriving (Eq, Show)
-newtype RequestTokenKey = RequestTokenKey { unRequestTokenKey :: ByteString } deriving (Eq, Show)
+newtype AccessTokenKey = AccessTokenKey { unAccessTokenKey :: ByteString } deriving (Eq, Show, IsString)
+newtype RequestTokenKey = RequestTokenKey { unRequestTokenKey :: ByteString } deriving (Eq, Show, IsString)
 
-newtype Verifier = Verifier ByteString deriving (Eq, Show)
-newtype Callback = Callback ByteString deriving (Eq, Show)
+newtype Verifier = Verifier ByteString deriving (Eq, Show, IsString)
+newtype Callback = Callback ByteString deriving (Eq, Show, IsString)
 
 newtype Nonce = Nonce ByteString deriving (Eq, Show)
 newtype Signature = Signature ByteString deriving (Eq, Show)
@@ -272,8 +272,9 @@ emptyVerifierLookup = const . return . Verifier $ ""
 noopCallbackStore :: Monad m => CallbackStore m
 noopCallbackStore = const . const $ return ()
 
-emptyTokenLookup :: Monad m => SecretLookup t m
-emptyTokenLookup = const (return $ Right "")
+emptyTokenLookup :: (Monad m, Eq t, IsString t) => SecretLookup t m
+emptyTokenLookup "" = return $ Right ""
+emptyTokenLookup _ = return . Left $ InvalidToken ""
 
 requireEmptyTokenLookup :: Monad m => SecretLookup ByteString m
 requireEmptyTokenLookup "" = return . Right $ ""
