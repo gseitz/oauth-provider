@@ -20,6 +20,7 @@ module Network.Wai.OAuth.Types
     , OAuthError(..)
     , errorAsResponse
     , emptyTokenLookup
+    , noopCallbackStore
 
     -- * OAuth configuration
     , OAuthConfig(..)
