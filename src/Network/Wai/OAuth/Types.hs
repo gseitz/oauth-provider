@@ -5,7 +5,9 @@
 
 module Network.Wai.OAuth.Types
     (
-      SignatureMethod(..)
+      OAuthRequest(..)
+    , OAuthResponse(..)
+    , SignatureMethod(..)
     , TokenType(..)
     , ConsumerKey(..)
     , RequestTokenKey(..)
@@ -50,27 +52,43 @@ module Network.Wai.OAuth.Types
     , OAuthT(OAuthT)
     , OAuthM
     , runOAuth
+    , getOAuthConfig
+    , getOAuthRequest
     ) where
 
 import           Control.Applicative        (Applicative)
 import           Control.Concurrent.MonadIO (MonadIO)
 import           Control.Monad.Reader       (MonadReader (..))
-import           Control.Monad.State        (MonadState, get, put)
 import           Control.Monad.Trans        (MonadTrans, lift)
 import           Control.Monad.Trans.Either (EitherT, runEitherT)
 import           Control.Monad.Trans.Reader (ReaderT, runReaderT)
-import           Control.Monad.Trans.State  (StateT (..), runStateT)
 import           Data.ByteString            (ByteString)
 import           Data.Int                   (Int64)
 import           Data.String                (IsString)
 import           Data.Text                  (Text)
-import           Network.HTTP.Types         (badRequest400, unauthorized401)
-import           Network.Wai                (Request, Response, responseLBS)
+import           Network.HTTP.Types         (ResponseHeaders, Status,
+                                             badRequest400, unauthorized401)
 
-import qualified Data.ByteString.Lazy       as BL
 import qualified Data.Text                  as T
 import qualified Data.Text.Encoding         as E
 
+
+data OAuthRequest = OAuthRequest
+    { reqIsSecure             :: Bool -- ^ Whether the request is made via https or not
+    , reqPath                 :: [Text] -- ^ The request path without the query string
+    , reqQueryParams          :: SimpleQueryText -- ^ The request parameters
+    , reqBodyParams           :: SimpleQueryText -- ^ The decoded parameters from the formbody
+    , reqAuthenticationHeader :: SimpleQueryText -- ^ The parsed Authentication header
+    , reqHeaderHost           :: Text -- ^ The host part of the Host header
+    , reqHeaderPort           :: Int -- ^ The port part of the Host header
+    , reqRequestMethod        :: ByteString -- ^ The value of the request method header
+    } deriving (Eq, Show)
+
+data OAuthResponse = OAuthResponse
+    { respStatus  :: Status -- ^ The HTTP 'Status' code of the response
+    , respHeaders :: ResponseHeaders -- ^ The HTTP response headers
+    , respBody    :: ByteString -- ^ The content of the response
+    } deriving (Eq, Show)
 
 -- | Supported signature methods. /RSA-SHA1/ is currently not supported.
 data SignatureMethod = HMAC_SHA1 -- ^ <http://tools.ietf.org/html/rfc5849#section-3.4.2 RFC5849#3.4.2>
@@ -202,7 +220,7 @@ threeLeggedConfig :: Monad m =>
     -> OAuthConfig m
 threeLeggedConfig = OAuthConfig
 
-errorAsResponse :: OAuthError -> Response
+errorAsResponse :: OAuthError -> OAuthResponse
 errorAsResponse err = case err of
     -- 400 - Bad Request
     UnsupportedParameter _ -> r400
@@ -223,7 +241,7 @@ errorAsResponse err = case err of
   where
     r400 = resp badRequest400
     r401 = resp unauthorized401
-    resp status = responseLBS status [] $ BL.fromStrict $ E.encodeUtf8 $ T.pack $ show err
+    resp status = OAuthResponse status [] $ E.encodeUtf8 $ T.pack $ show err
 
 newtype Token = Token { unToken :: ByteString } deriving (Show, Eq, IsString)
 newtype Secret = Secret ByteString deriving (Show, Eq, IsString)
@@ -247,24 +265,26 @@ type ConsumerSecretLookup m = SecretLookup ConsumerKey m
 type AccessSecretLookup m = SecretLookup AccessTokenKey m
 type RequestSecretLookup m = SecretLookup RequestTokenKey m
 
-newtype OAuthT r s m a = OAuthT { runOAuthT :: EitherT OAuthError (StateT s (ReaderT r m)) a }
+newtype OAuthT r m a = OAuthT { runOAuthT :: EitherT OAuthError (ReaderT r m) a }
     deriving (Functor, Applicative, Monad, MonadIO)
-type OAuthM m a = OAuthT (OAuthConfig m) Request m  a
+type OAuthM m a = OAuthT (OAuthConfig m, OAuthRequest) m a
 
-runOAuth :: Monad m => r -> s -> OAuthT r s m a -> m (Either OAuthError a, s)
-runOAuth config req = (`runReaderT` config) . (`runStateT` req) . runEitherT . runOAuthT
+runOAuth :: Monad m => r -> OAuthT r m a -> m (Either OAuthError a)
+runOAuth config = (`runReaderT` config) . runEitherT . runOAuthT
 
-instance Monad m => MonadState s (OAuthT r s m) where
-    get = OAuthT get
-    put s = OAuthT $ put s
-
-instance Monad m => MonadReader r (OAuthT r s m) where
+instance Monad m => MonadReader r (OAuthT r m) where
     ask = OAuthT ask
     local f r = OAuthT . local f $ runOAuthT r
 
-instance MonadTrans (OAuthT r s) where
-    lift = OAuthT . lift . lift . lift
+instance MonadTrans (OAuthT r) where
+    lift = OAuthT . lift . lift
 
+
+getOAuthRequest :: Monad m => OAuthM m OAuthRequest
+getOAuthRequest = fmap snd ask
+
+getOAuthConfig :: Monad m => OAuthM m (OAuthConfig m)
+getOAuthConfig = fmap fst ask
 
 emptyVerifierLookup :: Monad m => VerifierLookup m
 emptyVerifierLookup = const . return . Verifier $ ""

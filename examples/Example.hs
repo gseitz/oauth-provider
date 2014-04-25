@@ -14,6 +14,7 @@ import           Network.Wai.Handler.Warp (run)
 
 import           Network.Wai.OAuth
 import           Network.Wai.OAuth.Types
+import Network.Wai.OAuth.Wai
 
 import qualified Data.ByteString          as B
 import qualified Data.ByteString.Lazy     as BL
@@ -38,15 +39,16 @@ warpApp = do
     run 3000 $ withOAuth paramsKey config [["protected"], ["users", "VIP"]] $ warpy paramsKey config chan
 
 warpy :: V.Key OAuthParams -> OAuthConfig IO -> Chan () -> W.Application
-warpy key config _ req = do
-    (eith, _) <- case W.pathInfo req of
-        ["request"] -> runOAuth config req twoLeggedRequestTokenRequest
-        ["access"] -> runOAuth config req twoLeggedAccessTokenRequest
-        _ -> return (Right . mkResponse $ isProtected <> " : " <> fromMaybe "successful request" echo, req)
-    return $ either errorAsResponse id eith
+warpy key config _ waiRequest =
+    convertAndExecute waiRequest $ \ waiRequest' oauthRequest -> do
+        eith <- case W.pathInfo waiRequest' of
+            ["request"] -> runOAuth (config, oauthRequest) twoLeggedRequestTokenRequest
+            ["access"] -> runOAuth (config, oauthRequest) twoLeggedAccessTokenRequest
+            _ -> return $ Right . mkResponse $ isProtected <> " : " <> fromMaybe "successful request" echo
+        return . toWaiResponse $ either errorAsResponse id eith
   where
-    isProtected = maybe "unprotected" (const "protected") $ V.lookup key (W.vault req)
-    echo = join $ lookup "echo" $ W.queryString req
+    isProtected = maybe "unprotected" (const "protected") $ V.lookup key (W.vault waiRequest)
+    echo = join $ lookup "echo" $ W.queryString waiRequest
 
 tokenGenerator :: Monad m => TokenGenerator m
 tokenGenerator RequestToken _ = return ("request_key", "request_secret")
@@ -55,8 +57,8 @@ tokenGenerator AccessToken _ = return ("access_key", "access_secret")
 verifierLookup :: Monad m => VerifierLookup m
 verifierLookup _ = return "foobar"
 
-mkResponse :: B.ByteString -> W.Response
-mkResponse = W.responseLBS ok200 [] . BL.fromStrict
+mkResponse :: B.ByteString -> OAuthResponse
+mkResponse = OAuthResponse ok200 []
 
 consumerLookup :: Monad m => SecretLookup ConsumerKey m
 consumerLookup (ConsumerKey key) = return $ case key of

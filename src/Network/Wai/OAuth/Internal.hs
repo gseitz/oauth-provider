@@ -4,36 +4,24 @@
 module Network.Wai.OAuth.Internal where
 
 import           Control.Applicative        ((<|>))
-import           Control.Arrow              (second)
 import           Control.Error.Util         (note)
 import           Control.Monad              (mfilter)
-import           Control.Monad.State        (get, modify)
-import           Control.Monad.Trans        (MonadIO, liftIO)
+import           Control.Monad.Trans        (MonadIO)
 import           Control.Monad.Trans.Either (hoistEither)
 import           Data.Attoparsec.Char8      hiding (isDigit)
 import           Data.ByteString            (ByteString)
 import           Data.Char                  (isAlpha, isAscii, isDigit)
 import           Data.Digest.Pure.SHA       (bytestringDigest, hmacSha1)
-import           Data.IORef.Lifted          (newIORef, readIORef, writeIORef)
 import           Data.List                  (find, group, partition, sort)
 import           Data.Maybe                 (fromMaybe)
-import           Data.Monoid                (mconcat)
 import           Data.Text                  (Text)
 import           Debug.Trace
-import           Network.HTTP.Types         (parseSimpleQuery, queryToQueryText,
-                                             urlDecode)
-import           Network.Wai                (Request, isSecure, pathInfo,
-                                             queryString, requestBody,
-                                             requestHeaderHost, requestHeaders)
-import           Network.Wai.Parse          (RequestBodyType (..),
-                                             getRequestBodyType)
+import           Network.HTTP.Types         (urlDecode)
 
 import qualified Data.ByteString            as B
 import qualified Data.ByteString.Base16     as B16
 import qualified Data.ByteString.Base64     as B64
 import qualified Data.ByteString.Lazy       as BL
-import qualified Data.Conduit               as C
-import qualified Data.Conduit.List          as CL
 import qualified Data.Text                  as T
 import qualified Data.Text.Encoding         as E
 
@@ -78,27 +66,22 @@ genParamString params = E.encodeUtf8 $ T.intercalate "&" paramPairs
     sortedParams = sort params
     paramPairs = [T.concat [oauthEncode k,"=",oauthEncode v] | (k,v) <- sortedParams]
 
-generateNormUrl :: Request -> Either OAuthError ByteString
-generateNormUrl request =
-    let secure = isSecure request
-        scheme = if secure then "https" else "http"
-        hostport = fmap (B.break (58 ==)) (requestHeaderHost request)
+generateNormUrl :: OAuthRequest -> Either OAuthError ByteString
+generateNormUrl OAuthRequest{..} =
+    let scheme = if reqIsSecure then "https" else "http"
         mkPort port = case port of
-            ":80" -> if not secure then "" else port
-            ":443" -> if secure then "" else port
-            p -> p
-        path = T.intercalate "/" $ pathInfo request
-    in note MissingHostHeader $ do
-        (host, port) <- hostport
-        return $ B.concat [scheme, "://", host, mkPort port, "/", E.encodeUtf8 path]
+            80 -> if not reqIsSecure then "" else ":80"
+            443 -> if reqIsSecure then "" else ":443"
+            p -> E.encodeUtf8 $ T.pack $ ':' : show p
+        path = T.intercalate "/" reqPath
+    in note MissingHostHeader $
+        return $ B.concat [scheme, "://", E.encodeUtf8 reqHeaderHost, mkPort reqHeaderPort, "/", E.encodeUtf8 path]
 
 splitOAuthParams :: MonadIO m => OAuthM m (SimpleQueryText, SimpleQueryText)
 splitOAuthParams = do
-    req <- get
+    req <- getOAuthRequest
     formBody <- formBodyParameters
-    oauthEither $ validateAndExtractParams (authHeaderParams req) formBody (query req)
-  where
-    authHeaderParams req = fromMaybe [] $ (maybeResult . parse parseAuthHeader) =<< lookup "Authentication" (requestHeaders req)
+    oauthEither $ validateAndExtractParams (reqAuthenticationHeader req) formBody (reqQueryParams req)
 
 validateAndExtractParams :: SimpleQueryText -> SimpleQueryText -> SimpleQueryText -> Either OAuthError (SimpleQueryText, SimpleQueryText)
 validateAndExtractParams authParams bodyParams queryParams =
@@ -120,30 +103,7 @@ validateAndExtractParams authParams bodyParams queryParams =
                         in  fromMaybe (Right oauths) $ unsupported <|> duplicate
 
 formBodyParameters :: MonadIO m => OAuthM m SimpleQueryText
-formBodyParameters = do
-    req <- get
-    case getRequestBodyType req of
-        Just UrlEncoded -> do
-            (body, replayedBody) <- liftIO $ replay req
-            let req' = req { requestBody = replayedBody }
-                params = parseSimpleQuery $ mconcat body
-                result = [(E.decodeUtf8 k, E.decodeUtf8 v) | (k, v) <- params]
-            modify (const req')
-            return result
-        _               -> return []
-  where
-    replay req = do
-        body <- requestBody req C.$$ CL.consume
-        ichunks <- newIORef body
-        let rbody = do
-                chunks <- readIORef ichunks
-                case chunks of
-                    [] -> return ()
-                    x:xs -> do
-                        writeIORef ichunks xs
-                        C.yield x
-                        rbody
-        return (body, rbody)
+formBodyParameters = fmap reqBodyParams getOAuthRequest
 
 oauthEither :: Monad m => Either OAuthError b -> OAuthM m b
 oauthEither = OAuthT . hoistEither
@@ -154,6 +114,9 @@ extractSignatureMethod "PLAINTEXT" = Right Plaintext
 -- wai-oauth doesn't support RSA-SHA1 at this point
 -- extractSignatureMethod "RSA-SHA1"  = Right RSA_SHA1
 extractSignatureMethod method      = Left $ UnsupportedSignatureMethod method
+
+parseAuthentication :: ByteString -> SimpleQueryText
+parseAuthentication header = fromMaybe [] $ (maybeResult . parse parseAuthHeader) header
 
 parseAuthHeader :: Parser SimpleQueryText
 parseAuthHeader = do
@@ -190,9 +153,6 @@ grouped n as = if B.null as then [] else result
   where
     (str, rest) = B.splitAt n as
     result = str : grouped n rest
-
-query :: Request -> SimpleQueryText
-query = fmap (second (fromMaybe "")) . queryToQueryText . queryString
 
 debug :: Show a => a -> a
 debug a = traceShow a a
