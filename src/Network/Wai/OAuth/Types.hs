@@ -174,8 +174,8 @@ oneLeggedConfig :: Monad m =>
     -> [SignatureMethod] -- ^ The supported 'SignatureMethod's.
     -> OAuthConfig m
 oneLeggedConfig consumerLookup check methods =
-    OAuthConfig consumerLookup (requireEmptyTokenLookup . unAccessTokenKey)
-                (requireEmptyTokenLookup . unRequestTokenKey)
+    OAuthConfig consumerLookup (emptyTokenLookup . unAccessTokenKey)
+                (emptyTokenLookup . unRequestTokenKey)
                 emptyTokenGen check methods noopCallbackStore emptyVerifierLookup
   where
     emptyTokenGen _ = const (return ("",""))
@@ -295,9 +295,4 @@ noopCallbackStore = const . const $ return ()
 emptyTokenLookup :: (Monad m, Eq t, IsString t) => SecretLookup t m
 emptyTokenLookup "" = return $ Right ""
 emptyTokenLookup _ = return . Left $ InvalidToken ""
-
-requireEmptyTokenLookup :: Monad m => SecretLookup ByteString m
-requireEmptyTokenLookup "" = return . Right $ ""
-requireEmptyTokenLookup t  = return . Left . InvalidToken $ t
-
 
