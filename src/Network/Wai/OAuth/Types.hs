@@ -139,8 +139,8 @@ data OAuthError = DuplicateParameter Text
                 deriving (Show, Eq)
 
 -- | 'OAuthConfig' captures everything that is need for the processing the
--- different kind of requests as part of the one legged, two legged, or
--- three legged flows.
+-- different kind of requests as part of the one-legged, two-legged, or
+-- three-legged flows.
 data OAuthConfig m = OAuthConfig
     { -- | A function to lookup the 'Secret' for the given 'ConsumerKey'.
       cfgConsumerSecretLookup      :: !(SecretLookup ConsumerKey m)
@@ -164,7 +164,7 @@ data OAuthConfig m = OAuthConfig
     , cfgVerifierLookup            :: !(VerifierLookup m)
     }
 
--- | Constructs an 'OAuthConfig' value for the one legged flow.
+-- | Constructs an 'OAuthConfig' value for the one-legged flow.
 oneLeggedConfig :: Monad m =>
     SecretLookup ConsumerKey m -- ^ Monadic value to lookup the secret associated
                                -- with the given 'ConsumerKey'.
@@ -180,7 +180,7 @@ oneLeggedConfig consumerLookup check methods =
   where
     emptyTokenGen _ = const (return ("",""))
 
--- | Constructs an 'OAuthConfig' value for the two legged flow.
+-- | Constructs an 'OAuthConfig' value for the two-legged flow.
 twoLeggedConfig :: Monad m =>
     ConsumerSecretLookup m -- ^ Monadic value to lookup the secret associated
                            -- with the given 'ConsumerKey'.
@@ -199,7 +199,7 @@ twoLeggedConfig cons acc req tokenGen check methods =
     OAuthConfig cons acc req tokenGen check
         methods noopCallbackStore emptyVerifierLookup
 
--- | Constructs an 'OAuthConfig' value for the three legged flow.
+-- | Constructs an 'OAuthConfig' value for the three-legged flow.
 threeLeggedConfig :: Monad m =>
     ConsumerSecretLookup m -- ^ Monadic value to lookup the secret associated
                            -- with the given 'ConsumerKey'.
@@ -220,6 +220,8 @@ threeLeggedConfig :: Monad m =>
     -> OAuthConfig m
 threeLeggedConfig = OAuthConfig
 
+-- | Builds an 'OAuthResponse' out of an 'OAuthError' and sets the appropriate
+-- 'Status' code.
 errorAsResponse :: OAuthError -> OAuthResponse
 errorAsResponse err = case err of
     -- 400 - Bad Request
@@ -280,18 +282,24 @@ instance MonadTrans (OAuthT r) where
     lift = OAuthT . lift . lift
 
 
+-- | Convenience function to get the 'OAuthRequest' out of the 'ReaderT' slice of the stack.
 getOAuthRequest :: Monad m => OAuthM m OAuthRequest
 getOAuthRequest = fmap snd ask
 
+-- | Convenience function to get the 'OAuthConfig' out of the 'ReaderT' slice of the stack.
 getOAuthConfig :: Monad m => OAuthM m (OAuthConfig m)
 getOAuthConfig = fmap fst ask
 
+-- | Convenience function that always returns an empty 'Verifier'.
+-- This function is only used in the one-legged and two-legged flow, as no
+-- verifier is involved there.
 emptyVerifierLookup :: Monad m => VerifierLookup m
 emptyVerifierLookup = const . return . Verifier $ ""
 
 noopCallbackStore :: Monad m => CallbackStore m
 noopCallbackStore = const . const $ return ()
 
+-- | Constructs a 'SecretLookup' that only succeeds if the input 'Token' is empty.
 emptyTokenLookup :: (Monad m, Eq t, IsString t) => SecretLookup t m
 emptyTokenLookup "" = return $ Right ""
 emptyTokenLookup _ = return . Left $ InvalidToken ""
