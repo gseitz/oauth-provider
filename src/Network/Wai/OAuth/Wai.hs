@@ -8,13 +8,13 @@ module Network.Wai.OAuth.Wai
 
 import           Control.Arrow              (second)
 import           Control.Monad.IO.Class     (MonadIO, liftIO)
-import           Data.Attoparsec.Char8 (Parser)
+import           Data.Attoparsec.Char8      (Parser)
 import           Data.Functor               ((<$>))
 import           Data.IORef.Lifted          (newIORef, readIORef, writeIORef)
 import           Data.List                  (isPrefixOf)
 import           Data.Maybe                 (fromMaybe)
 import           Data.Monoid                (mconcat)
-import Data.Text (Text)
+import           Data.Text                  (Text)
 import           Network.HTTP.Types         (parseSimpleQuery, queryToQueryText)
 import           Network.Wai                (Middleware, Request, Response,
                                              isSecure, pathInfo, queryString,
@@ -24,7 +24,7 @@ import           Network.Wai                (Middleware, Request, Response,
 import           Network.Wai.Parse          (RequestBodyType (..),
                                              getRequestBodyType)
 
-import qualified          Data.Attoparsec.Char8 as A
+import qualified Data.Attoparsec.Char8      as A
 import qualified Data.ByteString.Lazy       as BL
 import qualified Data.Conduit               as C
 import qualified Data.Conduit.List          as CL

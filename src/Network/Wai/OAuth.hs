@@ -31,6 +31,7 @@ import           Data.Functor               ((<$>))
 import           Data.Maybe                 (fromMaybe)
 import           Data.Monoid                ((<>))
 import           Network.HTTP.Types         (hContentType, ok200)
+
 import qualified Data.ByteString            as B
 import qualified Data.Text.Encoding         as E
 
