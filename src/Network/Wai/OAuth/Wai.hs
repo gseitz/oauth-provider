@@ -45,7 +45,7 @@ import           Network.Wai.OAuth.Types
 -- itself is a syntactically valid OAuth request with valid and authenticated tokens.
 -- The actual authorization needs to be done by the application itself.
 -- For this purpose, the extracted 'OAuthParams' can be accessed with the given
--- 'V.Key' 'OAuthParams' from the 'Request''s 'V.Vault'.
+-- 'V.Key' 'OAuthParams' from the 'Request''s 'V.Vault' further down the line.
 withOAuth ::
     V.Key OAuthParams -- ^ The 'V.Key' with which the 'OAuthParams' can be
                       -- looked up in the request handling of an
@@ -68,8 +68,14 @@ withOAuth paramsKey cfg prefixes app req =
         errorOrParams <- runOAuth (cfg, oauthReq) authenticated
         either errorAsWaiResponse (app . setParams req') errorOrParams
 
-
-convertAndExecute :: Request -> (Request -> OAuthRequest -> IO Response) -> IO Response
+-- | Converts the given 'Request' and executes the action function.
+convertAndExecute :: Request -- ^ The original Wai 'Request'.
+    -> (Request -> OAuthRequest -> IO Response)
+    -- ^ The action function. Since converting a 'Request' to an 'OAuthRequest'
+    -- potentially reads the request body, a copy of the original 'Request'
+    -- with the body restored (the content is replayed) for further usage
+    -- is passed to this action function as well.
+    -> IO Response
 convertAndExecute req action = do
     (req', errorOrOAuthReq) <- toOAuthRequest req
     either errorAsWaiResponse (action req') errorOrOAuthReq
@@ -109,6 +115,7 @@ toOAuthRequest req = do
         mkRequest (host, port) = OAuthRequest (isSecure req) (pathInfo req) (query req) bodyParams authHeaderParams host port (requestMethod req)
     return (req', maybe (Left MissingHostHeader) (Right . mkRequest) hostPort)
 
+-- | Creates a 'Response' out of an 'OAuthResponse'.
 toWaiResponse :: OAuthResponse -> Response
 toWaiResponse (OAuthResponse status headers content) = responseLBS status headers (BL.fromStrict content)
 
