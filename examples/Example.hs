@@ -26,7 +26,6 @@ main :: IO ()
 main = do
     _  <- forkIO warpApp2Legged
     _ <- forkIO clientApp
-    _ <- readLn :: IO Int
     return ()
 
 warpApp2Legged :: IO ()
@@ -87,12 +86,14 @@ timestampCheck _ = return Nothing
 
 clientApp :: IO ()
 clientApp = do
-    putStrLn "-- Accessing unprotected resource"
+    putStrLn "-- Accessing unprotected resource. OAuth parameters are not checked for validity."
     print =<< executeRequest "/unprotected" "I made this up" "very secret. wow."
     putStrLn "-- Trying to access protected resource with made up tokens"
-    print =<< executeRequest "/protected" "I made this" "up"
+    print =<< executeRequest "/protected" "I made this up" "very secret. wow."
     (reqTok, reqSec) <- acquireRequestToken
+    putStrLn . T.unpack $ "-- Acquired request credentials: " <> reqTok <> " - " <> reqSec
     (accTok, accSec) <- acquireAccessToken reqTok reqSec
+    putStrLn . T.unpack $ "-- Acquired access credentials: " <> accTok <> " - " <> accSec
     putStrLn "-- Accessing protected resource with acquired AccessToken after 2-legged flow"
     print =<< executeRequest "/protected" accTok accSec
     return ()
