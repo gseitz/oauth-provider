@@ -7,6 +7,7 @@ module Network.Wai.OAuth.Wai
     ) where
 
 import           Control.Arrow              (second)
+import           Control.Error.Util         (hush)
 import           Control.Monad.IO.Class     (MonadIO, liftIO)
 import           Data.Attoparsec.Char8      (Parser)
 import           Data.Functor               ((<$>))
@@ -111,7 +112,7 @@ toOAuthRequest :: Request -> IO (Request, Either OAuthError OAuthRequest)
 toOAuthRequest req = do
     (req', bodyParams) <- extractFormBodyParameters req
     let authHeaderParams = fromMaybe [] $ parseAuthentication <$> lookup "Authentication" (requestHeaders req)
-        hostPort = (A.maybeResult . A.parse hostPortParser) =<< requestHeaderHost req
+        hostPort = (hush . A.parseOnly hostPortParser) =<< requestHeaderHost req
         mkRequest (host, port) = OAuthRequest (isSecure req) (pathInfo req) (query req) bodyParams authHeaderParams host port (requestMethod req)
     return (req', maybe (Left MissingHostHeader) (Right . mkRequest) hostPort)
 
