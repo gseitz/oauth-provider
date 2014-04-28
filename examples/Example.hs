@@ -4,7 +4,6 @@ module Example where
 
 import           Control.Arrow            (second)
 import           Control.Concurrent       (forkIO)
-import           Control.Concurrent.Chan
 import           Control.Monad            (join)
 import           Data.List                (intercalate)
 import           Data.Maybe               (fromMaybe)
@@ -25,21 +24,21 @@ import qualified Network.Wai              as W
 
 main :: IO ()
 main = do
-    _  <- forkIO warpApp
+    _  <- forkIO warpApp2Legged
     _ <- forkIO clientApp
     _ <- readLn :: IO Int
     return ()
 
-warpApp :: IO ()
-warpApp = do
-    chan <- newChan
+warpApp2Legged :: IO ()
+warpApp2Legged = do
     paramsKey <- V.newKey
---     let config = threeLeggedConfig consumerLookup accessLookup emptyTokenLookup tokenGenerator timestampCheck [HMAC_SHA1] noopCallbackStore verifierLookup
+    -- Setting up the 'OAuthConfig'. We only use 'Plaintext' as supported 'SignatureMethod',
+    -- as it makes putting the requests together a lot easier.
     let config = twoLeggedConfig consumerLookup accessLookup requestLookup tokenGenerator timestampCheck [Plaintext]
-    run 3000 $ withOAuth paramsKey config [["protected"], ["users", "VIP"]] $ warpy paramsKey config chan
+    run 3000 $ withOAuth paramsKey config [["protected"], ["users", "VIP"]] $ warpy paramsKey config
 
-warpy :: V.Key OAuthParams -> OAuthConfig IO -> Chan () -> W.Application
-warpy key config _ waiRequest =
+warpy :: V.Key OAuthParams -> OAuthConfig IO -> W.Application
+warpy key config waiRequest =
     convertAndExecute waiRequest $ \ waiRequest' oauthRequest -> do
         eith <- case W.pathInfo waiRequest' of
             ["request"] -> runOAuth (config, oauthRequest) twoLeggedRequestTokenRequest
@@ -60,21 +59,29 @@ verifierLookup _ = return "foobar"
 mkResponse :: B.ByteString -> OAuthResponse
 mkResponse = OAuthResponse ok200 []
 
+-- | Action to lookup the consumer secret. In an application, this probably
+-- will be a database lookup.
 consumerLookup :: Monad m => SecretLookup ConsumerKey m
 consumerLookup (ConsumerKey key) = return $ case key of
     "consumer_key" -> Right "consumer_secret"
     k -> Left $ InvalidConsumerKey k
 
+-- | Action to lookup the access token secret. In an application, this probably
+-- will be a database lookup.
 accessLookup :: Monad m => SecretLookup AccessTokenKey m
 accessLookup (AccessTokenKey key) = return $ case key of
     "access_key" -> Right "access_secret"
     k -> Left $ InvalidToken k
 
+-- | Action to lookup the request token secret. In an application, this probably
+-- will be a database lookup.
 requestLookup :: Monad m => SecretLookup RequestTokenKey m
 requestLookup (RequestTokenKey key) = return $ case key of
     "request_key" -> Right "request_secret"
     k -> Left $ InvalidToken k
 
+-- | This action should check in a request log whether the given consumer,
+-- token, nonce, and timestamp haven never been used before.
 timestampCheck :: Monad m => NonceTimestampCheck m
 timestampCheck _ = return Nothing
 
