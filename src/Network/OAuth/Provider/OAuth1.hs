@@ -7,9 +7,9 @@
 
 -- | This module provides the basic building blocks to build WAI applications with OAuth 1.0a cababilities.
 --
--- "wai-oauth" implements the /One Legged/, /Two Legged/, and /Three Legged/ flows described
+-- "oauth-provider" implements the /One Legged/, /Two Legged/, and /Three Legged/ flows described
 -- in <https://github.com/Mashape/mashape-oauth/blob/master/FLOWS.md>.
-module Network.Wai.OAuth
+module Network.OAuth.Provider.OAuth1
     (
       oneLegged
     , twoLeggedAccessTokenRequest
@@ -35,8 +35,8 @@ import           Network.HTTP.Types         (hContentType, ok200)
 import qualified Data.ByteString            as B
 import qualified Data.Text.Encoding         as E
 
-import           Network.Wai.OAuth.Internal
-import           Network.Wai.OAuth.Types
+import           Network.OAuth.Provider.OAuth1.Internal
+import           Network.OAuth.Provider.OAuth1.Types
 
 -- | Checks that the request is signed by the final consumer-accesstoken secrets.
 authenticated :: MonadIO m => OAuthM m OAuthParams

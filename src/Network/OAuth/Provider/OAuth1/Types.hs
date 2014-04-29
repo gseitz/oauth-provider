@@ -3,7 +3,7 @@
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE OverloadedStrings          #-}
 
-module Network.Wai.OAuth.Types
+module Network.OAuth.Provider.OAuth1.Types
     (
       OAuthRequest(..)
     , OAuthResponse(..)

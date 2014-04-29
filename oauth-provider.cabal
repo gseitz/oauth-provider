@@ -1,6 +1,6 @@
-name:                wai-oauth
+name:                oauth-provider
 version:             0.1.0.0
-homepage:            https://github.com/gseitz/wai-oauth
+homepage:            https://github.com/gseitz/oauth-provider
 license:             BSD3
 license-file:        LICENSE
 author:              Gerolf Seitz
@@ -12,10 +12,10 @@ cabal-version:       >=1.10
 
 
 library
-   exposed-modules:     Network.Wai.OAuth,
-                        Network.Wai.OAuth.Types,
-                        Network.Wai.OAuth.Internal,
-                        Network.Wai.OAuth.Wai
+   exposed-modules:     Network.OAuth.Provider.OAuth1,
+                        Network.OAuth.Provider.OAuth1.Types,
+                        Network.OAuth.Provider.OAuth1.Internal,
+                        Network.OAuth.Provider.OAuth1.Wai
   
   -- other-modules:       
   
@@ -53,7 +53,7 @@ library
 executable examples
   build-depends:      base >=4.6 && <4.7,
                       bytestring >= 0.9,
-                      wai-oauth,
+                      oauth-provider,
                       blaze-html,
                       wai,
                       wai-extra,
@@ -74,7 +74,7 @@ executable examples
   main-is:            Example.hs
   default-language:   Haskell2010
 
-test-suite wai-oauth-tests
+test-suite oauth-provider-tests
     type:           exitcode-stdio-1.0
     main-is:        Main.hs
     hs-source-dirs: test
@@ -85,6 +85,6 @@ test-suite wai-oauth-tests
                     tasty-hunit,
                     http-types,
                     wai,
-                    wai-oauth
+                    oauth-provider
 
   default-language: Haskell2010

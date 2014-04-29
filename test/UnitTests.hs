@@ -6,8 +6,8 @@ import           Test.Tasty.HUnit
 
 import qualified Data.ByteString            as B
 
-import           Network.Wai.OAuth.Internal
-import           Network.Wai.OAuth.Types
+import           Network.OAuth.Provider.OAuth1.Internal
+import           Network.OAuth.Provider.OAuth1.Types
 
 tests :: TestTree
 tests = testGroup "HUnit tests" [

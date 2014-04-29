@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
 {-# LANGUAGE TupleSections     #-}
-module Network.Wai.OAuth.Internal where
+module Network.OAuth.Provider.OAuth1.Internal where
 
 import           Control.Applicative        ((<|>))
 import           Control.Error.Util         (note)
@@ -25,7 +25,7 @@ import qualified Data.ByteString.Lazy       as BL
 import qualified Data.Text                  as T
 import qualified Data.Text.Encoding         as E
 
-import           Network.Wai.OAuth.Types
+import           Network.OAuth.Provider.OAuth1.Types
 
 bsSecretLookup :: Monad m => (ByteString -> t) -> SecretLookup t m -> SecretLookup Token m
 bsSecretLookup f l = l . f . unToken
@@ -111,7 +111,7 @@ oauthEither = OAuthT . hoistEither
 extractSignatureMethod :: ByteString -> Either OAuthError SignatureMethod
 extractSignatureMethod "HMAC-SHA1" = Right HMAC_SHA1
 extractSignatureMethod "PLAINTEXT" = Right Plaintext
--- wai-oauth doesn't support RSA-SHA1 at this point
+-- oauth-provider doesn't support RSA-SHA1 at this point
 -- extractSignatureMethod "RSA-SHA1"  = Right RSA_SHA1
 extractSignatureMethod method      = Left $ UnsupportedSignatureMethod method
 

@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Network.Wai.OAuth.Wai
+module Network.OAuth.Provider.OAuth1.Wai
     (
       withOAuth
     , convertAndExecute
@@ -33,16 +33,16 @@ import qualified Data.Text.Encoding         as E
 import qualified Data.Vault.Lazy            as V
 
 
-import           Network.Wai.OAuth
-import           Network.Wai.OAuth.Internal
-import           Network.Wai.OAuth.Types
+import           Network.OAuth.Provider.OAuth1
+import           Network.OAuth.Provider.OAuth1.Internal
+import           Network.OAuth.Provider.OAuth1.Types
 
 
 -- | 'withOAuth' acts as a 'Middleware' and intercepts requests to check for
 -- the validity of the provided OAuth parameters. The given 'PathParts' are
 -- used as prefixes for paths that are only accessible with a valid OAuth request.
 --
--- Notice that this just triggers "wai-oauth" to check whether the request
+-- Notice that this just triggers "oauth-provider" to check whether the request
 -- itself is a syntactically valid OAuth request with valid and authenticated tokens.
 -- The actual authorization needs to be done by the application itself.
 -- For this purpose, the extracted 'OAuthParams' can be accessed with the given

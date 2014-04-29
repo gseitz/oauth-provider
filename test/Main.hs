@@ -7,4 +7,4 @@ main :: IO ()
 main = defaultMain tests
 
 tests :: TestTree
-tests = testGroup "wai-oauth test-suite" [U.tests]
+tests = testGroup "oauth-provider test-suite" [U.tests]

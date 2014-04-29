@@ -11,9 +11,9 @@ import           Data.Monoid              ((<>))
 import           Network.HTTP.Types       (ok200, parseQueryText)
 import           Network.Wai.Handler.Warp (run)
 
-import           Network.Wai.OAuth
-import           Network.Wai.OAuth.Types
-import Network.Wai.OAuth.Wai
+import           Network.OAuth.Provider.OAuth1
+import           Network.OAuth.Provider.OAuth1.Types
+import           Network.OAuth.Provider.OAuth1.Wai
 
 import qualified Data.ByteString          as B
 import qualified Data.ByteString.Lazy     as BL
