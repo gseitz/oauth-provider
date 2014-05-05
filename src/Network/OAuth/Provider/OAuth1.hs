@@ -114,7 +114,7 @@ processOAuthRequest tokenLookup = do
     oauth <- validateRequest
     OAuthConfig {..} <- getOAuthConfig
     _ <- verifyOAuthSignature cfgConsumerSecretLookup tokenLookup oauth
-    _ <- OAuthT . EitherT . lift $ do
+    _ <- OAuthM . EitherT . lift $ do
         maybeError <- cfgNonceTimestampCheck $ oauthParams oauth
         return $ maybe (Right ()) Left  maybeError
     return $ oauthParams oauth
@@ -181,7 +181,7 @@ verifyOAuthSignature consumerLookup tokenLookup  (OAuthState oauthRaw rest url m
     unless (clientSignature == serverSignature) $
         oauthEither $ Left $ InvalidSignature clientSignature
   where
-    wrapped f = OAuthT . EitherT . lift . f
+    wrapped f = OAuthM . EitherT . lift . f
 
 
 

@@ -106,7 +106,7 @@ formBodyParameters :: MonadIO m => OAuthM m SimpleQueryText
 formBodyParameters = fmap reqBodyParams getOAuthRequest
 
 oauthEither :: Monad m => Either OAuthError b -> OAuthM m b
-oauthEither = OAuthT . hoistEither
+oauthEither = OAuthM . hoistEither
 
 extractSignatureMethod :: ByteString -> Either OAuthError SignatureMethod
 extractSignatureMethod "HMAC-SHA1" = Right HMAC_SHA1

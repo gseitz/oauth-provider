@@ -49,8 +49,7 @@ module Network.OAuth.Provider.OAuth1.Types
     , TokenGenerator
 
     -- * Monad
-    , OAuthT(OAuthT)
-    , OAuthM
+    , OAuthM(OAuthM)
     , runOAuth
     , getOAuthConfig
     , getOAuthRequest
@@ -275,19 +274,19 @@ type ConsumerSecretLookup m = SecretLookup ConsumerKey m
 type AccessSecretLookup m = SecretLookup AccessTokenKey m
 type RequestSecretLookup m = SecretLookup RequestTokenKey m
 
-newtype OAuthT r m a = OAuthT { runOAuthT :: EitherT OAuthError (ReaderT r m) a }
+-- | The monad transformer in which all the OAuth operations are running.
+newtype OAuthM m a = OAuthM { runOAuthM :: EitherT OAuthError (ReaderT (OAuthConfig m, OAuthRequest) m) a }
     deriving (Functor, Applicative, Monad, MonadIO)
-type OAuthM m a = OAuthT (OAuthConfig m, OAuthRequest) m a
 
-runOAuth :: Monad m => r -> OAuthT r m a -> m (Either OAuthError a)
-runOAuth config = (`runReaderT` config) . runEitherT . runOAuthT
+runOAuth :: Monad m => (OAuthConfig m, OAuthRequest) -> OAuthM m a -> m (Either OAuthError a)
+runOAuth config = (`runReaderT` config) . runEitherT . runOAuthM
 
-instance Monad m => MonadReader r (OAuthT r m) where
-    ask = OAuthT ask
-    local f r = OAuthT . local f $ runOAuthT r
+instance Monad m => MonadReader (OAuthConfig m, OAuthRequest) (OAuthM m) where
+    ask = OAuthM ask
+    local f r = OAuthM . local f $ runOAuthM r
 
-instance MonadTrans (OAuthT r) where
-    lift = OAuthT . lift . lift
+instance MonadTrans OAuthM where
+    lift = OAuthM . lift . lift
 
 
 -- | Convenience function to get the 'OAuthRequest' out of the 'ReaderT' slice of the stack.
