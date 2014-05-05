@@ -302,5 +302,5 @@ noopCallbackStore = const . const $ return ()
 -- | Constructs a 'SecretLookup' that only succeeds if the input 'Token' is empty.
 emptyTokenLookup :: (Monad m, Eq t, IsString t) => SecretLookup t m
 emptyTokenLookup "" = return $ Right ""
-emptyTokenLookup _ = return . Left $ InvalidToken ""
+emptyTokenLookup _ = return . Left $ InvalidToken "<non-empty token>"
 
