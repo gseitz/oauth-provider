@@ -73,6 +73,10 @@ import qualified Data.Text                  as T
 import qualified Data.Text.Encoding         as E
 
 
+-- | 'OAuthRequest' is used to decouple oauth-provider from the underlying
+-- representation of an HTTP requests of the various web frameworks.
+-- This datatype contains all the necessary information for properly handling
+-- OAuth requests.
 data OAuthRequest = OAuthRequest
     { reqIsSecure             :: Bool -- ^ Whether the request is made via https or not
     , reqPath                 :: [Text] -- ^ The request path without the query string
@@ -84,6 +88,10 @@ data OAuthRequest = OAuthRequest
     , reqRequestMethod        :: ByteString -- ^ The value of the request method header
     } deriving (Eq, Show)
 
+-- | 'OAuthResponse is used to decouple oauth-provider from the underlying
+-- representation of an HTTP response of the various web frameworks.
+-- This dataype contains the bare minimum information for creating an
+-- actual response.
 data OAuthResponse = OAuthResponse
     { respStatus  :: Status -- ^ The HTTP 'Status' code of the response
     , respHeaders :: ResponseHeaders -- ^ The HTTP response headers

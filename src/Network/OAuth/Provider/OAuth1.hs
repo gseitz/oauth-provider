@@ -5,18 +5,22 @@
 {-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE ViewPatterns          #-}
 
--- | This module provides the basic building blocks to build WAI applications with OAuth 1.0a cababilities.
+-- | This module provides the basic building blocks to build applications with OAuth 1.0 cababilities.
+-- OAuth 1.0 is specified by <http://tools.ietf.org/html/rfc5849 RFC 5849>.
 --
 -- "oauth-provider" implements the /One Legged/, /Two Legged/, and /Three Legged/ flows described
 -- in <https://github.com/Mashape/mashape-oauth/blob/master/FLOWS.md>.
 module Network.OAuth.Provider.OAuth1
     (
-      oneLegged
-    , twoLeggedAccessTokenRequest
+      authenticated
+    -- * One-legged Flow
+    , oneLegged
+    -- * Two-legged Flow
     , twoLeggedRequestTokenRequest
-    , threeLeggedAccessTokenRequest
+    , twoLeggedAccessTokenRequest
+    -- * Three-legged Flow
     , threeLeggedRequestTokenRequest
-    , authenticated
+    , threeLeggedAccessTokenRequest
     ) where
 
 import           Control.Error.Util         (note)
