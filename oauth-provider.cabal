@@ -16,28 +16,28 @@ library
                         Network.OAuth.Provider.OAuth1.Types,
                         Network.OAuth.Provider.OAuth1.Internal,
                         Network.OAuth.Provider.OAuth1.Wai
-  -- other-modules:       
-  -- other-extensions:    
-  build-depends:       base >=4.6 && <4.7,
-                       bytestring >= 0.9,
-                       wai >= 1.2,
-                       wai-extra,
-                       monadIO,
-                       conduit,
-                       SHA >=1.4 && <1.7,
-                       http-types >= 0.8.3,
-                       text,
-                       base64-bytestring,
-                       base16-bytestring,
-                       attoparsec,
-                       vault,
-                       resourcet,
-                       transformers,
-                       mtl,
-                       errors,
-                       either,
-                       containers,
-                       lifted-base
+  -- other-modules:
+  -- other-extensions:
+  build-depends:       base               >=  4.6   &&  < 5,
+                       attoparsec         >=  0.10  &&  <  0.12,
+                       base16-bytestring  >=  0.1   &&  <  1.2,
+                       base64-bytestring  >=  1     &&  <  2,
+                       bytestring         >=  0.9   &&  <  0.11,
+                       conduit            >=  1.0   &&  <  1.2,
+                       containers         >=  0.5   &&  <  0.6,
+                       either             >=  4.0   &&  <  4.2,
+                       errors             >=  1.4   &&  <  1.5,
+                       http-types         >=  0.8   &&  <  0.9,
+                       lifted-base        >=  0.2   &&  <  0.3,
+                       monadIO            >=  0.10  &&  <  0.11,
+                       mtl                >=  2.1   &&  <  2.3,
+                       resourcet          >=  1.1   &&  <  1.2,
+                       SHA                >=  1.4   &&  <  1.7,
+                       text               >=  0.11  &&  <  1.2,
+                       transformers       >=  0.3   &&  <  0.5,
+                       vault              >=  0.3   &&  <  0.4,
+                       wai                >=  2.0   &&  <  2.2,
+                       wai-extra          >=  2.0   &&  <  2.2
 
   hs-source-dirs:      src
   ghc-options:         -Wall -Werror
@@ -45,23 +45,17 @@ library
   default-language:    Haskell2010
 
 executable examples
-  build-depends:      base >=4.6 && <4.7,
-                      bytestring >= 0.9,
-                      oauth-provider,
-                      blaze-html,
-                      wai,
-                      wai-extra,
-                      vault,
-                      text,
-                      http-types,
-                      warp,
-                      mtl,
-                      transformers,
-                      either,
-                      resourcet,
-                      monad-logger,
-                      http-conduit,
-                      network
+  build-depends:       base            >=4.6  &&    <4.7,
+                       bytestring      >=     0.9   &&     <  0.11,
+                       http-conduit,
+                       http-types      >=     0.8   &&     <  0.9,
+                       monad-logger,
+                       network,
+                       oauth-provider  >=     0.1   &&     <  0.2,
+                       text            >=     0.11  &&     <  1.2,
+                       vault           >=     0.3   &&     <  0.4,
+                       wai             >=     2.0   &&     <  2.2,
+                       warp
 
 
   hs-source-dirs:     examples
@@ -77,8 +71,6 @@ test-suite oauth-provider-tests
                       HUnit,
                       tasty >= 0.8,
                       tasty-hunit,
-                      http-types,
-                      wai,
                       oauth-provider
 
   default-language:   Haskell2010
