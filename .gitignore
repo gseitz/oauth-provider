@@ -2,3 +2,4 @@
 dist
 tags
 cabal.sandbox.config
+codex.tags
