@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Example where
+module Main where
 
 import           Control.Arrow            (second)
 import           Control.Concurrent       (forkIO)
