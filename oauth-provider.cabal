@@ -14,8 +14,7 @@ cabal-version:       >=1.10
 library
    exposed-modules:     Network.OAuth.Provider.OAuth1,
                         Network.OAuth.Provider.OAuth1.Types,
-                        Network.OAuth.Provider.OAuth1.Internal,
-                        Network.OAuth.Provider.OAuth1.Wai
+                        Network.OAuth.Provider.OAuth1.Internal
   -- other-modules:
   -- other-extensions:
   build-depends:       base               >=  4.6   &&  < 5,
@@ -44,23 +43,8 @@ library
 
   default-language:    Haskell2010
 
-executable examples
-  build-depends:       base            >=4.6  &&    <4.7,
-                       bytestring      >=     0.9   &&     <  0.11,
-                       http-conduit,
-                       http-types      >=     0.8   &&     <  0.9,
-                       monad-logger,
-                       network,
-                       oauth-provider  >=     0.1   &&     <  0.2,
-                       text            >=     0.11  &&     <  1.2,
-                       vault           >=     0.3   &&     <  0.4,
-                       wai             >=     2.0   &&     <  2.2,
-                       warp
 
 
-  hs-source-dirs:     examples
-  main-is:            Main.hs
-  default-language:   Haskell2010
 
 test-suite oauth-provider-tests
   type:               exitcode-stdio-1.0
