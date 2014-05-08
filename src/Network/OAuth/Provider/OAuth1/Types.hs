@@ -56,7 +56,6 @@ module Network.OAuth.Provider.OAuth1.Types
     ) where
 
 import           Control.Applicative        (Applicative)
-import           Control.Concurrent.MonadIO (MonadIO)
 import           Control.Monad.Reader       (MonadReader (..))
 import           Control.Monad.Trans        (MonadTrans, lift)
 import           Control.Monad.Trans.Either (EitherT, runEitherT)
@@ -276,7 +275,7 @@ type RequestSecretLookup m = SecretLookup RequestTokenKey m
 
 -- | The monad transformer in which all the OAuth operations are running.
 newtype OAuthM m a = OAuthM { runOAuthM :: EitherT OAuthError (ReaderT (OAuthConfig m, OAuthRequest) m) a }
-    deriving (Functor, Applicative, Monad, MonadIO)
+    deriving (Functor, Applicative, Monad)
 
 runOAuth :: Monad m => (OAuthConfig m, OAuthRequest) -> OAuthM m a -> m (Either OAuthError a)
 runOAuth config = (`runReaderT` config) . runEitherT . runOAuthM
