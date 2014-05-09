@@ -76,14 +76,14 @@ import qualified Data.Text.Encoding         as E
 -- This datatype contains all the necessary information for properly handling
 -- OAuth requests.
 data OAuthRequest = OAuthRequest
-    { reqIsSecure             :: Bool -- ^ Whether the request is made via https or not
-    , reqPath                 :: [Text] -- ^ The request path without the query string
-    , reqQueryParams          :: SimpleQueryText -- ^ The request parameters
-    , reqBodyParams           :: SimpleQueryText -- ^ The decoded parameters from the formbody
-    , reqAuthenticationHeader :: SimpleQueryText -- ^ The parsed Authentication header
-    , reqHeaderHost           :: Text -- ^ The host part of the Host header
-    , reqHeaderPort           :: Int -- ^ The port part of the Host header
-    , reqRequestMethod        :: ByteString -- ^ The value of the request method header
+    { reqIsSecure             :: !Bool -- ^ Whether the request is made via https or not
+    , reqPath                 :: ![Text] -- ^ The request path without the query string
+    , reqQueryParams          :: !SimpleQueryText -- ^ The request parameters
+    , reqBodyParams           :: !SimpleQueryText -- ^ The decoded parameters from the formbody
+    , reqAuthenticationHeader :: !SimpleQueryText -- ^ The parsed Authentication header
+    , reqHeaderHost           :: !Text -- ^ The host part of the Host header
+    , reqHeaderPort           :: !Int -- ^ The port part of the Host header
+    , reqRequestMethod        :: !ByteString -- ^ The value of the request method header
     } deriving (Eq, Show)
 
 -- | 'OAuthResponse is used to decouple oauth-provider from the underlying
@@ -91,9 +91,9 @@ data OAuthRequest = OAuthRequest
 -- This dataype contains the bare minimum information for creating an
 -- actual response.
 data OAuthResponse = OAuthResponse
-    { respStatus  :: Status -- ^ The HTTP 'Status' code of the response
-    , respHeaders :: ResponseHeaders -- ^ The HTTP response headers
-    , respBody    :: ByteString -- ^ The content of the response
+    { respStatus  :: !Status -- ^ The HTTP 'Status' code of the response
+    , respHeaders :: !ResponseHeaders -- ^ The HTTP response headers
+    , respBody    :: !ByteString -- ^ The content of the response
     } deriving (Eq, Show)
 
 -- | Supported signature methods. /RSA-SHA1/ is currently not supported.
