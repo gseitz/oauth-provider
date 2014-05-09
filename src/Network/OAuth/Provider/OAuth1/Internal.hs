@@ -6,7 +6,6 @@ module Network.OAuth.Provider.OAuth1.Internal where
 import           Control.Applicative        ((<|>))
 import           Control.Error.Util         (note)
 import           Control.Monad              (mfilter)
-import           Control.Monad.Trans        (MonadIO)
 import           Control.Monad.Trans.Either (hoistEither)
 import           Data.Attoparsec.Char8      hiding (isDigit)
 import           Data.ByteString            (ByteString)
@@ -77,7 +76,7 @@ generateNormUrl OAuthRequest{..} =
     in note MissingHostHeader $
         return $ B.concat [scheme, "://", E.encodeUtf8 reqHeaderHost, mkPort reqHeaderPort, "/", E.encodeUtf8 path]
 
-splitOAuthParams :: MonadIO m => OAuthM m (SimpleQueryText, SimpleQueryText)
+splitOAuthParams :: Monad m => OAuthM m (SimpleQueryText, SimpleQueryText)
 splitOAuthParams = do
     req <- getOAuthRequest
     formBody <- formBodyParameters
@@ -102,7 +101,7 @@ validateAndExtractParams authParams bodyParams queryParams =
                             unsupported = fmap (Left . UnsupportedParameter . fst) $ find (flip notElem oauthParamNames . fst) oauths
                         in  fromMaybe (Right oauths) $ unsupported <|> duplicate
 
-formBodyParameters :: MonadIO m => OAuthM m SimpleQueryText
+formBodyParameters :: Monad m => OAuthM m SimpleQueryText
 formBodyParameters = fmap reqBodyParams getOAuthRequest
 
 oauthEither :: Monad m => Either OAuthError b -> OAuthM m b
