@@ -184,7 +184,7 @@ oneLeggedConfig consumerLookup check methods =
                 (emptyTokenLookup . unRequestTokenKey)
                 emptyTokenGen check methods noopCallbackStore emptyVerifierLookup
   where
-    emptyTokenGen _ = const (return ("",""))
+    emptyTokenGen = const . const $ return ("","")
 
 -- | Constructs an 'OAuthConfig' value for the two-legged flow.
 twoLeggedConfig :: Monad m =>
