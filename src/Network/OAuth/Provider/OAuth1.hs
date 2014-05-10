@@ -86,7 +86,7 @@ threeLeggedRequestTokenRequest = do
         (storeCallback cfgCallbackStore)
     return $ mkResponse200 $ ("oauth_callback_confirmed", "true") : responseParams
   where
-    storeCallback cbStore OAuthParams {..} = maybe missingCallback (lift . cbStore (opConsumerKey, opToken)) opCallback
+    storeCallback cbStore OAuthParams {..} = maybe missingCallback (lift . cbStore (opConsumerKey, RequestTokenKey . unToken $ opToken)) opCallback
     missingCallback = oauthEither . Left $ MissingParameter "oauth_callback"
 
 -- | Handles the third step of the three legged OAuth flow. The request is
@@ -101,7 +101,7 @@ threeLeggedAccessTokenRequest = do
     return $ mkResponse200 responseParams
   where
     verifierCheck verifierLookup params = do
-        storedVerifier <- lift $ verifierLookup (opConsumerKey params, opToken params)
+        storedVerifier <- lift $ verifierLookup (opConsumerKey params, RequestTokenKey . unToken . opToken $ params)
         case opVerifier params of
             Just ((==) storedVerifier -> True) -> oauthEither $ Right ()
             Just wrongVerifier                 -> oauthEither $ Left (InvalidVerifier wrongVerifier)

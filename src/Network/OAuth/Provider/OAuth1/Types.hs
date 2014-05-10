@@ -262,8 +262,8 @@ type TokenSecret = Secret
 type Secrets = (ConsumerSecret, TokenSecret)
 type Timestamp = Int64
 type PathParts = [Text]
-type VerifierLookup m  = (ConsumerKey, Token) -> m Verifier
-type CallbackStore m = (ConsumerKey, Token) -> Callback -> m ()
+type VerifierLookup m  = (ConsumerKey, RequestTokenKey) -> m Verifier
+type CallbackStore m = (ConsumerKey, RequestTokenKey) -> Callback -> m ()
 type NonceTimestampCheck m = OAuthParams -> m (Maybe OAuthError)
 -- | Action that generates a key and secret associated to the 'ConsumerKey' for the given 'TokenType'
 type TokenGenerator m = TokenType -> ConsumerKey -> m (Token, Secret)
