@@ -104,7 +104,7 @@ data SignatureMethod = HMAC_SHA1 -- ^ <http://tools.ietf.org/html/rfc5849#sectio
 
 data TokenType = AccessToken | RequestToken deriving (Show, Eq)
 
-newtype ConsumerKey = ConsumerKey ByteString deriving (Eq, Show)
+newtype ConsumerKey = ConsumerKey { unConsumerKey :: ByteString } deriving (Eq, Show)
 newtype AccessTokenKey = AccessTokenKey { unAccessTokenKey :: ByteString } deriving (Eq, Show, IsString)
 newtype RequestTokenKey = RequestTokenKey { unRequestTokenKey :: ByteString } deriving (Eq, Show, IsString)
 
