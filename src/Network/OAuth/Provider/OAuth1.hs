@@ -21,22 +21,31 @@ module Network.OAuth.Provider.OAuth1
     -- * Three-legged Flow
     , threeLeggedRequestTokenRequest
     , threeLeggedAccessTokenRequest
+    -- * Utilities
+    , parseAuthHeader
     ) where
 
-import           Control.Error.Util         (note)
-import           Control.Monad              (mfilter, unless)
-import           Control.Monad.Trans.Class  (lift)
-import           Control.Monad.Trans.Either (EitherT (..))
-import           Data.Attoparsec.Char8      (decimal, parseOnly)
-import           Data.ByteString            (ByteString)
-import           Data.Either.Combinators    (mapLeft)
-import           Data.Functor               ((<$>))
-import           Data.Maybe                 (fromMaybe)
-import           Data.Monoid                ((<>))
-import           Network.HTTP.Types         (hContentType, ok200)
+import           Control.Error.Util                     (note)
+import           Control.Monad                          (mfilter, unless)
+import           Control.Monad.Trans.Class              (lift)
+import           Control.Monad.Trans.Either             (EitherT (..))
+import           Data.Attoparsec.Char8                  (Parser, char, decimal,
+                                                         maybeResult, parse,
+                                                         parseOnly, sepBy,
+                                                         skipSpace, string,
+                                                         takeTill, (.*>), (<*.))
+import           Data.ByteString                        (ByteString)
+import           Data.Either.Combinators                (mapLeft)
+import           Data.Functor                           ((<$>))
+import           Data.Maybe                             (fromMaybe)
+import           Data.Monoid                            ((<>))
+import           Data.Text                              (Text)
+import           Network.HTTP.Types                     (hContentType, ok200,
+                                                         urlDecode)
 
-import qualified Data.ByteString            as B
-import qualified Data.Text.Encoding         as E
+import qualified Data.ByteString                        as B
+import qualified Data.Text                              as T
+import qualified Data.Text.Encoding                     as E
 
 import           Network.OAuth.Provider.OAuth1.Internal
 import           Network.OAuth.Provider.OAuth1.Types
@@ -181,5 +190,22 @@ verifyOAuthSignature consumerLookup tokenLookup  (OAuthState oauthRaw rest url m
   where
     wrapped f = OAuthM . EitherT . lift . f
 
+
+parseAuthHeader :: ByteString -> SimpleQueryText
+parseAuthHeader header = fromMaybe [] $ (maybeResult . parse parseHeader) header
+
+parseHeader :: Parser SimpleQueryText
+parseHeader = do
+    _ <- string "OAuth"
+    _ <- skipSpace
+    sepBy (mfilter (T.isPrefixOf "oauth_" . fst) lineParser) separator
+  where
+    separator = char ',' >> skipSpace
+
+lineParser :: Parser (Text, Text)
+lineParser = do
+        key <- takeTill ('=' ==)
+        value <- "=\"" .*> takeTill ('"' ==) <*. "\""
+        return (E.decodeUtf8 $ urlDecode True key, E.decodeUtf8 $ urlDecode True value)
 
 

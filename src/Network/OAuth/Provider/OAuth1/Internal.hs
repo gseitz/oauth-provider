@@ -3,26 +3,25 @@
 {-# LANGUAGE TupleSections     #-}
 module Network.OAuth.Provider.OAuth1.Internal where
 
-import           Control.Applicative        ((<|>))
-import           Control.Error.Util         (note)
-import           Control.Monad              (mfilter)
-import           Control.Monad.Trans.Either (hoistEither)
-import           Data.Attoparsec.Char8      hiding (isDigit)
-import           Data.ByteString            (ByteString)
-import           Data.Char                  (isAlpha, isAscii, isDigit)
-import           Data.Digest.Pure.SHA       (bytestringDigest, hmacSha1)
-import           Data.List                  (find, group, partition, sort)
-import           Data.Maybe                 (fromMaybe)
-import           Data.Text                  (Text)
+import           Control.Applicative                 ((<$>), (<|>))
+import           Control.Error.Util                  (note)
+import           Control.Monad.Trans.Either          (hoistEither)
+import           Data.ByteString                     (ByteString)
+import           Data.Char                           (isAlpha, isAscii, isDigit)
+import           Data.Digest.Pure.SHA                (bytestringDigest,
+                                                      hmacSha1)
+import           Data.List                           (find, group, partition,
+                                                      sort)
+import           Data.Maybe                          (fromMaybe)
+import           Data.Text                           (Text)
 import           Debug.Trace
-import           Network.HTTP.Types         (urlDecode)
 
-import qualified Data.ByteString            as B
-import qualified Data.ByteString.Base16     as B16
-import qualified Data.ByteString.Base64     as B64
-import qualified Data.ByteString.Lazy       as BL
-import qualified Data.Text                  as T
-import qualified Data.Text.Encoding         as E
+import qualified Data.ByteString                     as B
+import qualified Data.ByteString.Base16              as B16
+import qualified Data.ByteString.Base64              as B64
+import qualified Data.ByteString.Lazy                as BL
+import qualified Data.Text                           as T
+import qualified Data.Text.Encoding                  as E
 
 import           Network.OAuth.Provider.OAuth1.Types
 
@@ -93,12 +92,12 @@ validateAndExtractParams authParams bodyParams queryParams =
   where
     hasParams = any isOAuthParam
     extractParams as bs cs = let (oauths, rest) = partition isOAuthParam as
-                             in  fmap (, rest ++ bs ++ cs) $ findErrors oauths
+                             in  (, rest ++ bs ++ cs) <$> findErrors oauths
     isOAuthParam = T.isPrefixOf "oauth_" . fst
     findErrors :: SimpleQueryText -> Either OAuthError SimpleQueryText
     findErrors oauths = let xs = group . sort $ map fst oauths
-                            duplicate = fmap (Left . DuplicateParameter . head) $ find ((> 1) . length) xs
-                            unsupported = fmap (Left . UnsupportedParameter . fst) $ find (flip notElem oauthParamNames . fst) oauths
+                            duplicate = (Left . DuplicateParameter . head) <$> find ((> 1) . length) xs
+                            unsupported = (Left . UnsupportedParameter . fst) <$> find (flip notElem oauthParamNames . fst) oauths
                         in  fromMaybe (Right oauths) $ unsupported <|> duplicate
 
 formBodyParameters :: Monad m => OAuthM m SimpleQueryText
@@ -114,22 +113,6 @@ extractSignatureMethod "PLAINTEXT" = Right Plaintext
 -- extractSignatureMethod "RSA-SHA1"  = Right RSA_SHA1
 extractSignatureMethod method      = Left $ UnsupportedSignatureMethod method
 
-parseAuthentication :: ByteString -> SimpleQueryText
-parseAuthentication header = fromMaybe [] $ (maybeResult . parse parseAuthHeader) header
-
-parseAuthHeader :: Parser SimpleQueryText
-parseAuthHeader = do
-    _ <- string "OAuth"
-    _ <- skipSpace
-    sepBy (mfilter (T.isPrefixOf "oauth_" . fst) lineParser) separator
-  where
-    separator = char ',' >> skipSpace
-
-lineParser :: Parser (Text, Text)
-lineParser = do
-        key <- takeTill ('=' ==)
-        value <- "=\"" .*> takeTill ('"' ==) <*. "\""
-        return (E.decodeUtf8 $ urlDecode True key, E.decodeUtf8 $ urlDecode True value)
 
 oauthParamNames :: [Text]
 oauthParamNames = map (T.append "oauth_") ["consumer_key", "callback", "token", "nonce", "timestamp", "signature_method", "signature", "verifier", "version"]
