@@ -269,8 +269,11 @@ type NonceTimestampCheck m = OAuthParams -> m (Maybe OAuthError)
 type TokenGenerator m = TokenType -> ConsumerKey -> m (Token, Secret)
 
 type SecretLookup k m = k -> m (Either OAuthError Secret)
+-- | Action to lookup the consumer secret.
 type ConsumerSecretLookup m = SecretLookup ConsumerKey m
+-- | Action to lookup the access token secret.
 type AccessSecretLookup m = SecretLookup AccessTokenKey m
+-- | Action to lookup the request token secret.
 type RequestSecretLookup m = SecretLookup RequestTokenKey m
 
 -- | The monad transformer in which all the OAuth operations are running.
