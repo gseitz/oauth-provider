@@ -10,12 +10,12 @@
 ## Usage
 
 To use *oauth-provider*, pick an integration package from the list below depending
-    on you web-framework of choice. Typical steps to do are:
+    on you web-framework of choice. Typical usage involves the following steps:
 
  * Build up an `OAuthConfiguration` value for either 1-, 2-, or 3-legged authentication.
-   * This entails building up various monadic actions for looking up the various token secrets, generating token/secret pairs, checking timestamp and nonce for uniqueness, etc...
- * Route requests to generate request tokens or access tokens to the provided functions.
-   * The 1-legged flow only uses the consumer token, but neither request or access token.
+   * This entails building up various monadic actions for looking up the token secrets, generating token/secret pairs, checking timestamp and nonce for uniqueness, etc...
+ * Route requests for generating request tokens or access tokens to the provided functions:
+   * The 1-legged flow uses neither request tokens nor access tokens for authentication, but only the consumer token.
    * `twoLeggedRequestTokenRequest`, `twoLeggedAccessTokenRequest` for 2-legged authentication
    * `threeLeggedRequestTokenRequest`, `threeLeggedAccessTokenRequest` for 3-legged authentication
  * Route all requests to "protected" resources via the `authenticated` function, which takes care of checking the request for valid authentication credentials.
