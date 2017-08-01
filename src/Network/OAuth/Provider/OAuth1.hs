@@ -27,11 +27,12 @@ import           Control.Error.Util                     (note)
 import           Control.Monad                          (mfilter, unless)
 import           Control.Monad.Trans.Class              (lift)
 import           Control.Monad.Trans.Either             (EitherT (..))
-import           Data.Attoparsec.Char8                  (Parser, char, decimal,
+import           Data.Attoparsec.ByteString.Char8       (Parser, char, decimal,
                                                          maybeResult, parse,
                                                          parseOnly, sepBy,
                                                          skipSpace, string,
-                                                         takeTill, (.*>), (<*.))
+                                                         takeTill)
+import Control.Applicative  ((*>), (<*))
 import           Data.ByteString                        (ByteString)
 import           Data.Either.Combinators                (mapLeft)
 import           Data.Functor                           ((<$>))
@@ -199,7 +200,7 @@ parseHeader = do
 lineParser :: Parser (Text, Text)
 lineParser = do
         key <- takeTill ('=' ==)
-        value <- "=\"" .*> takeTill ('"' ==) <*. "\""
+        value <- "=\"" *> takeTill ('"' ==) <* "\""
         return (E.decodeUtf8 $ urlDecode True key, E.decodeUtf8 $ urlDecode True value)
 
 

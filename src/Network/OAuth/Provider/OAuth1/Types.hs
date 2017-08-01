@@ -2,6 +2,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE DeriveGeneric              #-}
 
 module Network.OAuth.Provider.OAuth1.Types
     (
@@ -64,6 +65,7 @@ import           Data.ByteString            (ByteString)
 import           Data.Int                   (Int64)
 import           Data.String                (IsString)
 import           Data.Text                  (Text)
+import           GHC.Generics
 import           Network.HTTP.Types         (ResponseHeaders, Status,
                                              badRequest400, unauthorized401)
 
@@ -111,8 +113,8 @@ newtype RequestTokenKey = RequestTokenKey { unRequestTokenKey :: ByteString } de
 newtype Verifier = Verifier ByteString deriving (Eq, Show, IsString)
 newtype Callback = Callback ByteString deriving (Eq, Show, IsString)
 
-newtype Nonce = Nonce ByteString deriving (Eq, Show)
-newtype Signature = Signature ByteString deriving (Eq, Show)
+newtype Nonce = Nonce { unNonce :: ByteString } deriving (Eq, Show)
+newtype Signature = Signature { unSignature :: ByteString } deriving (Eq, Show)
 
 -- | Captures all OAuth parameters in a request.
 data OAuthParams = OAuthParams
@@ -251,8 +253,10 @@ errorAsResponse err = case err of
     r401 = resp unauthorized401
     resp status = OAuthResponse status [] $ E.encodeUtf8 $ T.pack $ show err
 
-newtype Token = Token { unToken :: ByteString } deriving (Show, Eq, IsString)
-newtype Secret = Secret ByteString deriving (Show, Eq, IsString)
+newtype Token = Token { unToken :: ByteString }
+  deriving (Show, Eq, IsString, Generic)
+newtype Secret = Secret { unSecret :: ByteString }
+  deriving (Show, Eq, IsString, Generic)
 
 type SimpleQueryText = [(Text, Text)]
 type RequestMethod = ByteString
