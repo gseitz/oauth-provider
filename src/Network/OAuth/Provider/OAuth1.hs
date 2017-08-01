@@ -43,6 +43,7 @@ import           Network.HTTP.Types                     (hContentType, ok200,
                                                          urlDecode)
 
 import qualified Data.ByteString                        as B
+import qualified Data.ByteString.Char8                  as BC
 import qualified Data.Text                              as T
 import qualified Data.Text.Encoding                     as E
 
@@ -178,10 +179,16 @@ verifyOAuthSignature consumerLookup tokenLookup  (OAuthState oauthRaw rest url m
     token <- wrapped tokenLookup $ opToken oauth
     let secrets = (cons, token)
         cleanOAuths = filter ((/=) "oauth_signature" . fst) oauthRaw
-    let serverSignature = genOAuthSignature oauth secrets method url (cleanOAuths <> rest)
         clientSignature = opSignature oauth
-    unless (clientSignature == serverSignature) $
-        oauthEither $ Left $ InvalidSignature clientSignature
+    case opSignatureMethod oauth of
+      HMAC_SHA1 -> do
+        let serverSignature = genOAuthSignature oauth secrets method url (cleanOAuths <> rest)
+        unless (clientSignature == serverSignature) $
+            oauthEither $ Left $ InvalidSignature clientSignature
+      Plaintext -> do
+        let clientSecr:tokenSecret:[] = BC.split '&' $ unSignature clientSignature
+        unless (Secret clientSecr == cons && Secret tokenSecret == token) $
+            oauthEither $ Left $ InvalidSignature clientSignature
   where
     wrapped f = OAuthM . EitherT . lift . f
 
