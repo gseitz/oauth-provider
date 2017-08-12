@@ -27,9 +27,9 @@ import           Control.Error.Util                     (note)
 import           Control.Monad                          (mfilter, unless)
 import           Control.Monad.Trans.Class              (lift)
 import           Control.Monad.Trans.Either             (EitherT (..))
-import           Data.Attoparsec.ByteString.Char8       (Parser, char, decimal,
+import           Data.Attoparsec.ByteString.Char8       (Parser, Result, char, decimal,
                                                          maybeResult, parse,
-                                                         parseOnly, sepBy,
+                                                         parseOnly, sepBy, feed,
                                                          skipSpace, string,
                                                          takeTill)
 import Control.Applicative  ((*>), (<*))
@@ -194,7 +194,15 @@ verifyOAuthSignature consumerLookup tokenLookup  (OAuthState oauthRaw rest url m
 
 
 parseAuthHeader :: ByteString -> SimpleQueryText
-parseAuthHeader header = fromMaybe [] $ (maybeResult . parse parseHeader) header
+parseAuthHeader header = fromMaybe [] $ maybeResult $ parseFinal parseHeader header
+
+-- | Because of :
+-- `maybeResult :: Result r -> Maybe r`
+-- «Convert a Result value to a Maybe value. A Partial result is treated as
+-- failure.»
+-- https://hackage.haskell.org/package/attoparsec-0.13.2.0/docs/Data-Attoparsec-ByteString-Char8.html#v:maybeResult
+parseFinal :: Parser SimpleQueryText -> ByteString -> Result SimpleQueryText
+parseFinal p s = parse p s `feed` BC.empty
 
 parseHeader :: Parser SimpleQueryText
 parseHeader = do
