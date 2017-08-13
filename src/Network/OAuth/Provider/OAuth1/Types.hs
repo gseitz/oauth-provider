@@ -2,6 +2,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE DeriveGeneric              #-}
 
 module Network.OAuth.Provider.OAuth1.Types
     (
@@ -20,6 +21,7 @@ module Network.OAuth.Provider.OAuth1.Types
     , Signature(..)
     , OAuthParams(..)
     , OAuthError(..)
+    , UserId
     , errorAsResponse
     , emptyTokenLookup
     , noopCallbackStore
@@ -64,6 +66,7 @@ import           Data.ByteString            (ByteString)
 import           Data.Int                   (Int64)
 import           Data.String                (IsString)
 import           Data.Text                  (Text)
+import           GHC.Generics
 import           Network.HTTP.Types         (ResponseHeaders, Status,
                                              badRequest400, unauthorized401)
 
@@ -111,8 +114,8 @@ newtype RequestTokenKey = RequestTokenKey { unRequestTokenKey :: ByteString } de
 newtype Verifier = Verifier ByteString deriving (Eq, Show, IsString)
 newtype Callback = Callback ByteString deriving (Eq, Show, IsString)
 
-newtype Nonce = Nonce ByteString deriving (Eq, Show)
-newtype Signature = Signature ByteString deriving (Eq, Show)
+newtype Nonce = Nonce { unNonce :: ByteString } deriving (Eq, Show)
+newtype Signature = Signature { unSignature :: ByteString } deriving (Eq, Show)
 
 -- | Captures all OAuth parameters in a request.
 data OAuthParams = OAuthParams
@@ -251,18 +254,21 @@ errorAsResponse err = case err of
     r401 = resp unauthorized401
     resp status = OAuthResponse status [] $ E.encodeUtf8 $ T.pack $ show err
 
-newtype Token = Token { unToken :: ByteString } deriving (Show, Eq, IsString)
-newtype Secret = Secret ByteString deriving (Show, Eq, IsString)
+newtype Token = Token { unToken :: ByteString }
+  deriving (Show, Eq, IsString, Generic)
+newtype Secret = Secret { unSecret :: ByteString }
+  deriving (Show, Eq, IsString, Generic)
 
 type SimpleQueryText = [(Text, Text)]
 type RequestMethod = ByteString
 type NormalizedURL = ByteString
+type UserId = ByteString
 type ConsumerSecret = Secret
 type TokenSecret = Secret
 type Secrets = (ConsumerSecret, TokenSecret)
 type Timestamp = Int64
 type PathParts = [Text]
-type VerifierLookup m  = (ConsumerKey, RequestTokenKey) -> m Verifier
+type VerifierLookup m  = (ConsumerKey, RequestTokenKey) -> m (Verifier, UserId)
 type CallbackStore m = (ConsumerKey, RequestTokenKey) -> Callback -> m ()
 type NonceTimestampCheck m = OAuthParams -> m (Maybe OAuthError)
 -- | Action that generates a key and secret associated to the 'ConsumerKey' for the given 'TokenType'
@@ -303,7 +309,7 @@ getOAuthConfig = fmap fst ask
 -- This function is only used in the one-legged and two-legged flow, as no
 -- verifier is involved there.
 emptyVerifierLookup :: Monad m => VerifierLookup m
-emptyVerifierLookup = const . return . Verifier $ ""
+emptyVerifierLookup = const $ return (Verifier "", "")
 
 noopCallbackStore :: Monad m => CallbackStore m
 noopCallbackStore = const . const $ return ()
