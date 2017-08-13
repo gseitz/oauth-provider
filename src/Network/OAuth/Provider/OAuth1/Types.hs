@@ -21,6 +21,7 @@ module Network.OAuth.Provider.OAuth1.Types
     , Signature(..)
     , OAuthParams(..)
     , OAuthError(..)
+    , UserId
     , errorAsResponse
     , emptyTokenLookup
     , noopCallbackStore
@@ -261,12 +262,13 @@ newtype Secret = Secret { unSecret :: ByteString }
 type SimpleQueryText = [(Text, Text)]
 type RequestMethod = ByteString
 type NormalizedURL = ByteString
+type UserId = ByteString
 type ConsumerSecret = Secret
 type TokenSecret = Secret
 type Secrets = (ConsumerSecret, TokenSecret)
 type Timestamp = Int64
 type PathParts = [Text]
-type VerifierLookup m  = (ConsumerKey, RequestTokenKey) -> m Verifier
+type VerifierLookup m  = (ConsumerKey, RequestTokenKey) -> m (Verifier, UserId)
 type CallbackStore m = (ConsumerKey, RequestTokenKey) -> Callback -> m ()
 type NonceTimestampCheck m = OAuthParams -> m (Maybe OAuthError)
 -- | Action that generates a key and secret associated to the 'ConsumerKey' for the given 'TokenType'
@@ -307,7 +309,7 @@ getOAuthConfig = fmap fst ask
 -- This function is only used in the one-legged and two-legged flow, as no
 -- verifier is involved there.
 emptyVerifierLookup :: Monad m => VerifierLookup m
-emptyVerifierLookup = const . return . Verifier $ ""
+emptyVerifierLookup = const $ return (Verifier "", "")
 
 noopCallbackStore :: Monad m => CallbackStore m
 noopCallbackStore = const . const $ return ()
