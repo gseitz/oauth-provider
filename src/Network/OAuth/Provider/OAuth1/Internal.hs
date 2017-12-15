@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
 {-# LANGUAGE TupleSections     #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module Network.OAuth.Provider.OAuth1.Internal where
 
 import           Control.Applicative                 ((<$>), (<|>))
@@ -121,7 +122,7 @@ oauthEncode :: Text -> Text
 oauthEncode = T.concatMap enc
   where
     enc c
-        | isAscii c && (isAlpha c || isDigit c || c `elem` "-._~") = T.singleton c
+        | isAscii c && (isAlpha c || isDigit c || c `elem` ("-._~"::String)) = T.singleton c
         | otherwise = let num = (grouped 2 . B16.encode . E.encodeUtf8 . T.singleton) c
                           hex = B.concat $ map (B.append "%") num
                       in T.toUpper $ E.decodeUtf8 hex

@@ -6,12 +6,13 @@ import           Test.Tasty.HUnit
 
 import qualified Data.ByteString            as B
 
+import           Network.OAuth.Provider.OAuth1
 import           Network.OAuth.Provider.OAuth1.Internal
 import           Network.OAuth.Provider.OAuth1.Types
 
 tests :: TestTree
 tests = testGroup "HUnit tests" [
-    signatureTests, extractOAuthParametersTests
+    signatureTests, extractOAuthParametersTests, parseAuthHeaderTests
     ]
 
 signatureTests :: TestTree
@@ -41,5 +42,20 @@ extractOAuthParametersTests = testGroup "OAuth param extraction tests"
 baseString :: B.ByteString
 baseString = "GET&http%3A%2F%2Flocalhost%3A3000%2F&file%3Dvacation.jpg%26oauth_consumer_key%3Ddpf43f3p2l4k3l03%26oauth_nonce%3Dkllo9940pd9333jh%26oauth_signature_method%3DHMAC-SHA1%26oauth_timestamp%3D1191242096%26oauth_token%3Dnnch734d00sl2jdk%26oauth_version%3D1.0%26size%3Doriginal"
 
+parseAuthHeaderTests :: TestTree
+parseAuthHeaderTests = testGroup "Parse OAuth header tests"
+    [ testCase "percent-encoded values" $ parseAuthHeader authorizationHeader @?=
+        [ ("oauth_signature","some-consumer-secret&")
+        , ("oauth_signature_method","PLAINTEXT")
+        , ("oauth_consumer_key","some-oauth-consumer-key")
+        , ("oauth_version","1.0")
+        , ("oauth_timestamp","1502557142")
+        , ("oauth_nonce","000")
+        , ("oauth_callback","https://localhost:3443/auth/page/callbackpage")
+        ]
+    ]
+  where
+    authorizationHeader :: B.ByteString
+    authorizationHeader = "OAuth oauth_signature=\"some-consumer-secret%26\",oauth_signature_method=\"PLAINTEXT\",oauth_consumer_key=\"some-oauth-consumer-key\",oauth_version=\"1.0\",oauth_timestamp=\"1502557142\",oauth_nonce=\"000\",oauth_callback=\"https%3A%2F%2Flocalhost%3A3443%2Fauth%2Fpage%2Fcallbackpage\""
 
 
