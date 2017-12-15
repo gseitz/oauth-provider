@@ -190,15 +190,9 @@ verifyOAuthSignature consumerLookup tokenLookup  (OAuthState oauthRaw rest url m
     let secrets = (cons, token)
         cleanOAuths = filter ((/=) "oauth_signature" . fst) oauthRaw
         clientSignature = opSignature oauth
-    case opSignatureMethod oauth of
-      HMAC_SHA1 -> do
-        let serverSignature = genOAuthSignature oauth secrets method url (cleanOAuths <> rest)
-        unless (clientSignature == serverSignature) $
-            oauthEither $ Left $ InvalidSignature clientSignature
-      Plaintext -> do
-        let clientSecr:tokenSecret:[] = BC.split '&' $ unSignature clientSignature
-        unless (Secret clientSecr == cons && Secret tokenSecret == token) $
-            oauthEither $ Left $ InvalidSignature clientSignature
+        serverSignature = genOAuthSignature oauth secrets method url (cleanOAuths <> rest)
+    unless (clientSignature == serverSignature) $
+        oauthEither $ Left $ InvalidSignature clientSignature
   where
     wrapped f = OAuthM . EitherT . lift . f
 
